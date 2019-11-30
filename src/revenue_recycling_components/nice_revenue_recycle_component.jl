@@ -69,7 +69,7 @@
             v.tax_revenue[t,r] = p.industrial_emissions[t,r] * p.carbon_tax[t,r] * 1e9
 
             # Calculate per capita tax revenue for each region (convert to $1000s/person to match pc consumption units).
-            # Note, tax in dollars and population in millions, so scale by 1e12.
+            # Note, tax in dollars and population in millions, so scale by 1e9.
             v.pc_tax_revenue[t,r] = v.tax_revenue[t,r] / p.regional_population[t,r] / 1e9
 
             # Calculate quintile distribution share of CO₂ tax burden and mitigation costs (assume both distributions are equal).
