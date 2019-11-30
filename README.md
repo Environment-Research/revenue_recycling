@@ -26,6 +26,8 @@ While still in the package manager, run the following line to install MimiNICE. 
 add https://github.com/Environment-Research/MimiNICE.jl.git
 ```
 
+### Run the Model
+
 Next, clone or download the `revenue_recycling` Git repository. Once this is on your computer, set this folder as your working directory in the Julia console and run the following code to get an instance of NICE with revenue recycling:
 
 ```julia
@@ -37,7 +39,11 @@ m = create_nice_recycle()
 
 # Run the model.
 run(m)
+```
 
+### View Results
+
+```
 # Check that it ran and produced results.
 m[:climatedynamics, :TATM]
 
