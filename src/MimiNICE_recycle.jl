@@ -38,8 +38,8 @@ function create_nice_recycle()
     # ----- Assign Model Parameters ----- #
     #-------------------------------------#
 
-	# First, perform a meta-regression based on study results to calculate elasticity vs. ln gdp per capita relationship.
-	meta_intercept, meta_slope = meta_regression(elasticity_studies)
+    # First, perform a meta-regression based on study results to calculate elasticity vs. ln gdp per capita relationship.
+    meta_intercept, meta_slope = meta_regression(elasticity_studies)
 
     # Note, revenue recycling model now uses quintile consumption values calculated in nice_recycle component (not nice_neteconomy).
     set_param!(nice_rr, :grosseconomy, :l, un_population_data)
@@ -47,9 +47,9 @@ function create_nice_recycle()
     set_param!(nice_rr, :nice_neteconomy, :l, un_population_data)
     set_param!(nice_rr, :nice_neteconomy, :income_dist, income_distribution ./ 100)
 
-	set_param!(nice_rr, :nice_recycle, :min_study_gdp, minimum(elasticity_studies.GDP))
-	set_param!(nice_rr, :nice_recycle, :max_study_gdp, maximum(elasticity_studies.GDP))
-	set_param!(nice_rr, :nice_recycle, :elasticity_intercept, meta_intercept)
+    set_param!(nice_rr, :nice_recycle, :min_study_gdp, minimum(elasticity_studies.GDP))
+    set_param!(nice_rr, :nice_recycle, :max_study_gdp, maximum(elasticity_studies.GDP))
+    set_param!(nice_rr, :nice_recycle, :elasticity_intercept, meta_intercept)
     set_param!(nice_rr, :nice_recycle, :elasticity_slope, meta_slope)
     set_param!(nice_rr, :nice_recycle, :regional_population, un_population_data)
     set_param!(nice_rr, :nice_recycle, :quintile_income_shares, income_distribution)
@@ -59,14 +59,14 @@ function create_nice_recycle()
     set_param!(nice_rr, :nice_welfare, :quintile_pop, un_population_data ./ 5)
 
     # Create parameter connections (:component => :parameter).
-    connect_param!(nice_rr, :nice_recycle => :industrial_emissions, :emissions 		 => :EIND)
-    connect_param!(nice_rr, :nice_recycle => :carbon_tax, 			:emissions 		 => :CPRICE)
-    connect_param!(nice_rr, :nice_recycle => :DAMFRAC,   			:damages         => :DAMFRAC)
-    connect_param!(nice_rr, :nice_recycle => :ABATEFRAC, 			:nice_neteconomy => :ABATEFRAC)
-    connect_param!(nice_rr, :nice_recycle => :Y,         			:nice_neteconomy => :Y)
-    connect_param!(nice_rr, :nice_recycle => :CPC,       			:nice_neteconomy => :CPC)
-    connect_param!(nice_rr, :nice_recycle => :qc_base,   			:nice_neteconomy => :quintile_c_pre)
-    connect_param!(nice_rr, :nice_welfare => :quintile_c,   		:nice_recycle 	 => :qc_post_recycle)
+    connect_param!(nice_rr, :nice_recycle => :industrial_emissions, :emissions       => :EIND)
+    connect_param!(nice_rr, :nice_recycle => :carbon_tax,           :emissions       => :CPRICE)
+    connect_param!(nice_rr, :nice_recycle => :DAMFRAC,              :damages         => :DAMFRAC)
+    connect_param!(nice_rr, :nice_recycle => :ABATEFRAC,            :nice_neteconomy => :ABATEFRAC)
+    connect_param!(nice_rr, :nice_recycle => :Y,                    :nice_neteconomy => :Y)
+    connect_param!(nice_rr, :nice_recycle => :CPC,                  :nice_neteconomy => :CPC)
+    connect_param!(nice_rr, :nice_recycle => :qc_base,              :nice_neteconomy => :quintile_c_pre)
+    connect_param!(nice_rr, :nice_welfare => :quintile_c,           :nice_recycle    => :qc_post_recycle)
 
     # Return NICE model with revenue recycling.
     return nice_rr
