@@ -43,7 +43,7 @@ run(m)
 
 ### View Results
 
-```
+```julia
 # Check that it ran and produced results.
 m[:climatedynamics, :TATM]
 
