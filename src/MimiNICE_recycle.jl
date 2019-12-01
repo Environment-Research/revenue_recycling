@@ -31,6 +31,9 @@ function create_nice_recycle()
     # Initialize an instance of NICE to build in revenue recycling.
     nice_rr = MimiNICE.create_nice()
 
+    # Get number of timesteps across model time horizon.
+    n_steps = length(dim_keys(nice_rr, :time))
+
     # Add in NICE revenue recycling component.
     add_comp!(nice_rr, nice_recycle, after = :nice_neteconomy)
 
@@ -55,12 +58,12 @@ function create_nice_recycle()
     set_param!(nice_rr, :nice_recycle, :quintile_income_shares, income_distribution)
     set_param!(nice_rr, :nice_recycle, :damage_dist, quintile_distribution(1.0, income_distribution))
     set_param!(nice_rr, :nice_recycle, :recycle_share, ones(12,5).*0.2)
+    set_param!(nice_rr, :nice_recycle, :global_carbon_tax, zeros(n_steps))
 
     set_param!(nice_rr, :nice_welfare, :quintile_pop, un_population_data ./ 5)
 
     # Create parameter connections (:component => :parameter).
     connect_param!(nice_rr, :nice_recycle => :industrial_emissions, :emissions       => :EIND)
-    connect_param!(nice_rr, :nice_recycle => :carbon_tax,           :emissions       => :CPRICE)
     connect_param!(nice_rr, :nice_recycle => :DAMFRAC,              :damages         => :DAMFRAC)
     connect_param!(nice_rr, :nice_recycle => :ABATEFRAC,            :nice_neteconomy => :ABATEFRAC)
     connect_param!(nice_rr, :nice_recycle => :Y,                    :nice_neteconomy => :Y)

@@ -15,13 +15,13 @@
     max_study_gdp            = Parameter()                                 # Maximum observed per capita GDP value found in elasticity studies ($/person).
     elasticity_intercept     = Parameter()                                 # Intercept term to estimate time-varying income elasticity.
     elasticity_slope         = Parameter()                                 # Slope term to estimate time-varying income elasticity.
+    global_carbon_tax        = Parameter(index=[time])                     # Carbon tax ($/ton CO₂).
     regional_population      = Parameter(index=[time, regions])            # Regional population levels (millions of people).
     ABATEFRAC                = Parameter(index=[time, regions])            # Cost of CO₂ emission reductions as share of gross economic output.
     DAMFRAC                  = Parameter(index=[time, regions])            # Climate damages as share of gross output.
     Y                        = Parameter(index=[time, regions])            # Gross world product net of abatement and damages (trillions 2005 USD yr⁻¹).
     CPC                      = Parameter(index=[time, regions])            # Regional per capita consumption (thousands 2005 USD yr⁻¹)
     industrial_emissions     = Parameter(index=[time, regions])            # Industrial carbon emissions (GtC yr⁻¹).
-    carbon_tax               = Parameter(index=[time, regions])            # Carbon tax ($/ton CO₂).
     quintile_income_shares   = Parameter(index=[regions, quintiles])       # Quintile share of regional income.
     damage_dist              = Parameter(index=[regions, quintiles])       # Quintile share of regional climate damages.
     recycle_share            = Parameter(index=[regions, quintiles])       # Share of carbon tax revenue recycled back to each quintile.
@@ -66,7 +66,7 @@
 
             # Calculate total carbon tax revenue for each region (dollars).
             # Note, emissions in GtC and tax in dollars, so scale by 1e9.
-            v.tax_revenue[t,r] = p.industrial_emissions[t,r] * p.carbon_tax[t,r] * 1e9
+            v.tax_revenue[t,r] = p.industrial_emissions[t,r] * p.global_carbon_tax[t] * 1e9
 
             # Calculate per capita tax revenue for each region (convert to $1000s/person to match pc consumption units).
             # Note, tax in dollars and population in millions, so scale by 1e9.
