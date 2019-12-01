@@ -50,8 +50,9 @@ m[:climatedynamics, :TATM]
 # If you want to look at plots, run the following code. Note that it only works for 2-d data (i.e. time x region), it won't show quintile level plots.
 explore(m)
 
-# This code assumes 0% mitigation for all regions-periods as a default. To instead add mitigation rates to see a carbon tax effect, run the following code:
-set_param!(m, :emissions, :MIU, ones(60,12).*0.75)
+# This code assumes 0% mitigation for all regions-periods as a default. To instead see a carbon tax effect, run the following code:
+# Note* This code will not produce consistent results unless you also update the mitigation rates resulting from this tax.
+set_param!(m, :nice_recycle, :global_carbon_tax, collect(range(0, stop=2000, length=60)))
 run(m)
 explore(m)
 ```
