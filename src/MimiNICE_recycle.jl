@@ -14,8 +14,6 @@ income_distribution = convert(Matrix, DataFrame(load(joinpath(@__DIR__, "..", "d
 
 # Load studies used to calculate elasticities.
 elasticity_studies = DataFrame(load(joinpath(@__DIR__, "..", "data", "elasticity_study_data.csv")))
-# TODO FIX THIS - Row 33 contains missing data, remove for now.
-elasticity_studies = elasticity_studies[vcat(1:28, 30:end),:]
 
 # Load updated UN population projections and convert units to millions of people.
 un_population_data = convert(Matrix, DataFrame(load(joinpath(@__DIR__, "..", "data", "UN_medium_population_scenario.csv"), skiplines_begin=3))[:, 3:end]) ./ 1000
