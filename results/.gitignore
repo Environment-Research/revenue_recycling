@@ -1,0 +1,3 @@
+#Keep this folder, but do not track the model output in it.
+*
+!.gitignore
