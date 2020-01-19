@@ -324,3 +324,61 @@ function save_nice_recycle_results(m_policy::Model, m_bau::Model, opt_tax::Array
     save(joinpath(quintile_path, "post_recycle_pc_consumption_Q5.csv"), DataFrame(m_policy[:nice_recycle, :qc_post_recycle][:,:,5]))
 
 end
+
+
+#######################################################################################################################
+# CREATE LAFFER CURVE AND SAVE TO OUTPUT DIRECTORY
+#######################################################################################################################
+# Description: This function will create a folder directory to store results (dividing model output by global,
+#              regional, and quintile levels) for either the revenue recyling or reference case without recycling.
+#
+# Function Arguments:
+#
+#       year:                     Year to generate laffer curve for (default=2025)
+#       output_directory:         The directory path to the results folder where a particular set of model output will be saved.
+#----------------------------------------------------------------------------------------------------------------------
+
+function LafferCurve(year = 2025, output_directory)  ##not sure how to best define the function
+
+##NEED TO CREATE THIS RESULTS FOLDER
+Laffer_path = joinpath(output_directory, "LafferOutput")
+
+yr_float = (year-2005)/10 
+yr = convert(Int, yr_float)
+m = create_nice_recycle()
+run(m)
+
+backstop_prices = m[:emissions, :pbacktime] #get backstop prices because this tells us the ultimate carbon tax
+taxes = m[:nice_recycle, :global_carbon_tax]
+BAU_emissions_year = sum(m[:nice_recycle, :industrial_emissions][yr,:])
+theta2 = 2.8
+
+TaxesforLoop = collect(0:.01:maximum(backstop_prices[yr,:]))
+Rev = zeros(length(TaxesforLoop))
+MIUs = zeros(length(TaxesforLoop))
+for (i,t) = enumerate(TaxesforLoop)
+    m = create_nice_recycle()
+    taxes[2] = t
+    temp_MIU = min.((max.(((taxes ./ backstop_prices) .^ (1 / (theta2 - 1.0))), 0.0)), 1.0)                              
+    set_param!(m, :nice_recycle, :global_carbon_tax, taxes)
+    set_param!(m, :emissions, :MIU, temp_MIU)
+    run(m)
+    AllRevenue = m[:nice_recycle, :tax_revenue]
+    E = sum(m[:nice_recycle, :industrial_emissions][yr,:])
+    MIUs[i] = 100*E/BAU_emissions_year  
+    Rev[i] = sum(AllRevenue[yr,:])  #take total 2025 revenue resulting from this tax
+end
+
+#Rev = 1e-9*Rev  #need to check what units this is in
+
+##Output Dataframes to make plots
+save(joinpath(Laffer_path, "LafferData.csv"), DataFrame(Mitigation=MIUs, Revenue=Rev))  #export data
+
+###Makes plots
+plot(1000*TaxesforLoop, Rev, lw=2, lc=:black, xlabel="Total (Global) Carbon Tax", label="Environmental \n Laffer Curve", ylabel="Total (Global) Revenue")
+savefig(joinpath(Laffer_path, "LafferCurve_tax.svg"))
+plot(MIUs, Rev, lw=2, lc=:black, xlabel="Total (Global) De-Carbonization Rate", label="Environmental \n Laffer Curve", ylabel="Total (Global) Revenue")
+savefig(joinpath(Laffer_path, "LafferCurve.svg"))
+
+end
+
