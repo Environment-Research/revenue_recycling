@@ -6,6 +6,62 @@
 
 
 #####################################################################################################################
+# CLEAN UP AND ORGANIZE INCOME SHARE DATA INTO NICE FORMAT.
+#####################################################################################################################
+# Description: This function takes a DataFrame of time varying quintile income distributions (for each NICE region
+#              from 2015-2105) and converts it into an array with the dimension format required by NICE (time, region,
+#              quintile). It sets the 2005 quintile share to the calculated 2015 value and assumes quintile shares after
+#              2105 remain fixed.
+#
+# Function Arguments:
+#
+#       income_data   = A DataFrame read in from one of the income share files in the "data" folder of NICE.
+#--------------------------------------------------------------------------------------------------------------------
+
+function get_quintile_income_shares(income_data::DataFrame)
+
+    # Allocate an array for cleaned up quintile share data in format required for NICE (time × regions × quintile).
+    nice_years = collect(2005:10:2595)
+    quintile_shares = zeros(length(nice_years), 12, 5);
+
+    # Create vector of years for SSP quintile data (spans 2015-2105 in ten-year increments).
+    ssp_years = collect(2015:10:2105)
+
+    # Create vector of column names for each quintile.
+    quintile_names = [:s1, :s2, :s3, :s4, :s5]
+
+    # Sort the data by decade periods.
+    sort!(income_data, :decade)
+
+    # Loop through each quintile and decade and assign appropriate income shares to each region.
+    for (d, decade) in enumerate(ssp_years)
+        for (q, quintile) in enumerate(quintile_names)
+
+            # Find indices with data for a particular region in a given decade.
+            decade_index = findall(income_data.decade .== decade)
+
+            # Allocate those particular income share values and convert from percentage to income shares.
+            quintile_shares[d+1, :, q] = income_data[decade_index, quintile] ./ 100
+        end
+    end
+
+    # Set shares in 2005 to calculated 2015 value (estiamted values start in 2015, but NICE initializes in 2005).
+    quintile_shares[1,:,:] .= quintile_shares[2,:,:]
+
+    # Get index for first decade without calculated shares (i.e. after 2105).
+    missing_index = findfirst(x->x==0, quintile_shares[:,1,1])
+
+    # Set income shares constant (to 2105 value) for all periods after 2105
+    for q = 1:5
+        quintile_shares[missing_index:end,:,q] = repeat(quintile_shares[missing_index-1,:,q]', length(2115:10:2595))
+    end
+
+    # Return cleaned up income shares.
+    return quintile_shares
+end
+
+
+#####################################################################################################################
 # CALCULATE DAMAGE, CO₂ MITIGATION COST, OR CO₂ TAX BURDEN DISTRIBUTIONS ACROSS AN INDIVIDUAL REGION'S QUINTILES.
 #####################################################################################################################
 # Description: This function will calculate quintile distribution shares for an individual RICE region based
