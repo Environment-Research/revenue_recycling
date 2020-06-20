@@ -75,7 +75,7 @@ output_directory = joinpath((@__DIR__), "..", "results", results_folder)
 mkpath(output_directory)
 
 # Load quintile income distribution scenario data.
-income_distribution_raw = DataFrame(load(joinpath(@__DIR__, "..", "data", quintile_income_scenario*"_quintile_distributions.csv")))
+income_distribution_raw = DataFrame(load(joinpath(@__DIR__, "..", "data", quintile_income_scenario*"_quintile_distributions_consumption.csv")))
 
 # Clean up and organize time-varying income distribution data into required NICE format (time × regions × quintiles).
 income_distributions = get_quintile_income_shares(income_distribution_raw)

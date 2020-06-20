@@ -25,7 +25,7 @@ function get_quintile_income_shares(income_data::DataFrame)
     quintile_shares = zeros(length(nice_years), 12, 5);
 
     # Create vector of years for SSP quintile data (spans 2015-2105 in ten-year increments).
-    ssp_years = collect(2015:10:2105)
+    ssp_years = unique(income_data[:,:decade])    
 
     # Create vector of column names for each quintile.
     quintile_names = [:s1, :s2, :s3, :s4, :s5]
@@ -53,7 +53,7 @@ function get_quintile_income_shares(income_data::DataFrame)
 
     # Set income shares constant (to 2105 value) for all periods after 2105
     for q = 1:5
-        quintile_shares[missing_index:end,:,q] = repeat(quintile_shares[missing_index-1,:,q]', length(2115:10:2595))
+        quintile_shares[missing_index:end,:,q] = repeat(quintile_shares[missing_index-1,:,q]', length(nice_years) - missing_index +1)
     end
 
     # Return cleaned up income shares.
