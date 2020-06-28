@@ -167,7 +167,7 @@ function meta_regression(Data)
     end
 
     # Using these elasticities, run meta-regression (elasticity vs. ln gdp per capita).
-    meta_B, meta_V  = regress(elasticities, log.(Data.GDP))
+    meta_B, meta_V  = regress(elasticities, log.(Data.pcGDP))
     meta_intercept  = meta_B[1]
     meta_slope      = meta_B[2]
 

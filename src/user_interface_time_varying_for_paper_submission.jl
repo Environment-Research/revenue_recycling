@@ -97,6 +97,14 @@ include("optimize_recycle.jl")
 include("instantiate_model_in_interface.jl")
 include("optimize_reference.jl")
 
+# xi= -1
+damage_elasticity = -1.0
+results_folder = "damage_elasticity_neg1"
+include("instantiate_model_in_interface.jl")
+include("optimize_recycle.jl")
+include("instantiate_model_in_interface.jl")
+include("optimize_reference.jl")
+
 # bounded GDP in elasticity regression
 damage_elasticity = 1.0
 bound_gdp_elasticity = true
@@ -111,17 +119,26 @@ results_folder = "bottom_recycle_40"
 include("instantiate_model_in_interface.jl")
 include("optimize_recycle.jl")
 
-# xi= -1
-recycle_share = ones(12,5) .* 0.2
-damage_elasticity = -1.0
-results_folder = "damage_elasticity_neg1"
+# no tax revenue recycled to the bottom quintile
+recycle_share = [ones(12,1) .* 0.0 ones(12,4) * 0.25]
+results_folder = "no_recycling_for_bottom_quintile"
 include("instantiate_model_in_interface.jl")
 include("optimize_recycle.jl")
+
+# all revenue to the bottom two quintiles 
+recycle_share = [ones(12,2) .* 0.5 ones(12,3) * 0.0]
+results_folder = "all_revenue_to_bottom_2_quintile"
 include("instantiate_model_in_interface.jl")
-include("optimize_reference.jl")
+include("optimize_recycle.jl")
+
+# 30% of tax revenue is the administrative cost
+recycle_share = ones(12,5) .* 0.2 .* 0.7
+results_folder = "admin_burden_70_percent_tax"
+include("instantiate_model_in_interface.jl")
+include("optimize_recycle.jl")
 
 # no climate damages
-damage_elasticity = 1.0
+recycle_share = ones(12,5) .* 0.2
 results_folder = "no_climate_damages"
 include("instantiate_model_in_interface.jl")
 set_param!(nice, :sealeveldamages, :slrmultiplier, bau_model[:sealeveldamages,:slrmultiplier] .* 0)
@@ -145,7 +162,20 @@ set_param!(nice, :damages, :a1, bau_model[:damages,:a1] .* 2)
 set_param!(nice, :damages, :a2, bau_model[:damages,:a2] .* 2)
 include("optimize_reference.jl")
 
+# double conventional damages (normal slr damages) + xi = -1
+damage_elasticity = -1.0
+results_folder = "double_climate_damages_elasticity_neg_1"
+include("instantiate_model_in_interface.jl")
+set_param!(nice, :damages, :a1, bau_model[:damages,:a1] .* 2)
+set_param!(nice, :damages, :a2, bau_model[:damages,:a2] .* 2)
+include("optimize_recycle.jl")
+include("instantiate_model_in_interface.jl")
+set_param!(nice, :damages, :a1, bau_model[:damages,:a1] .* 2)
+set_param!(nice, :damages, :a2, bau_model[:damages,:a2] .* 2)
+include("optimize_reference.jl")
+
 # the inequality projections
+damage_elasticity = 1
 quintile_income_scenario = "lessInequality"
 results_folder = "time_varying_consumption_shares_"*quintile_income_scenario
 include("instantiate_model_in_interface.jl")
@@ -160,12 +190,12 @@ include("optimize_recycle.jl")
 include("instantiate_model_in_interface.jl")
 include("optimize_reference.jl")
 
-# quintile_income_scenario = "SSP1"
-# results_folder = "time_varying_consumption_shares_"*quintile_income_scenario
-# include("instantiate_model_in_interface.jl")
-# include("optimize_recycle.jl")
-# include("instantiate_model_in_interface.jl")
-# include("optimize_reference.jl")
+quintile_income_scenario = "SSP1"
+results_folder = "time_varying_consumption_shares_"*quintile_income_scenario
+include("instantiate_model_in_interface.jl")
+include("optimize_recycle.jl")
+include("instantiate_model_in_interface.jl")
+include("optimize_reference.jl")
 
 quintile_income_scenario = "SSP2"
 results_folder = "time_varying_consumption_shares_"*quintile_income_scenario
@@ -195,42 +225,49 @@ include("optimize_recycle.jl")
 include("instantiate_model_in_interface.jl")
 include("optimize_reference.jl")
 
+# only more basic consumption share studies
+quintile_income_scenario = "constant"
+results_folder = "expenditure_share_based_studies"
+include("instantiate_model_in_interface.jl")
+meta_intercept, meta_slope = meta_regression(elasticity_studies[elasticity_studies.Type .== "Direct",:])
+set_param!(nice, :nice_recycle, :elasticity_intercept, meta_intercept)
+set_param!(nice, :nice_recycle, :elasticity_slope, meta_slope)
+include("optimize_recycle.jl")
+include("instantiate_model_in_interface.jl")
+meta_intercept, meta_slope = meta_regression(elasticity_studies[elasticity_studies.Type .== "Direct",:])
+set_param!(nice, :nice_recycle, :elasticity_intercept, meta_intercept)
+set_param!(nice, :nice_recycle, :elasticity_slope, meta_slope)
+include("optimize_reference.jl")
 
+# CGE and Input-output studies
+results_folder = "CGE_IO_studies"
+include("instantiate_model_in_interface.jl")
+meta_intercept, meta_slope = meta_regression(elasticity_studies[elasticity_studies.Type .!= "Direct",:])
+set_param!(nice, :nice_recycle, :elasticity_intercept, meta_intercept)
+set_param!(nice, :nice_recycle, :elasticity_slope, meta_slope)
+include("optimize_recycle.jl")
+include("instantiate_model_in_interface.jl")
+meta_intercept, meta_slope = meta_regression(elasticity_studies[elasticity_studies.Type .!= "Direct",:])
+set_param!(nice, :nice_recycle, :elasticity_intercept, meta_intercept)
+set_param!(nice, :nice_recycle, :elasticity_slope, meta_slope)
+include("optimize_reference.jl")
 
 ##################################################################################
-##  these are the finicky ones
-
-# for one of these first two the global optimisation goes out of bounds
-# simply skip the global optimisation in optimise_in_interface.jl
-
-# no tax revenue recycled to the bottom quintile
-recycle_share = [ones(12,1) .* 0.0 ones(12,4) * 0.25]
-results_folder = "no_recycling_for_bottom_quintile"
-include("instantiate_model_in_interface.jl")
-include("optimize_recycle.jl")
-
-# all revenue to the bottom two quintiles 
-recycle_share = [ones(12,2) .* 0.5 ones(12,3) * 0.0]
-results_folder = "all_revenue_for_bottom_quintile"
-include("instantiate_model_in_interface.jl")
-include("optimize_recycle.jl")
+##  this is the finicky one
 
 # optimal global recycling
 # must change nice_revenue_recycling_component_time_varying.jl
-#  close region for loop before temp_C,
-#  compute per global per capita tax revenue pctax = sum(v.tax_revenue[t,:]) / sum(p.regional_population[t,:]) / 1e9
-#  restart the regional for loop, and set v.pc_tax_revenue[t,r] = pctax
-# 
+# insert 
+#	end 
+#	pctax = sum(v.tax_revenue[t,:]) / sum(p.regional_population[t,:]) / 1e9
+#	for r in d.regions
+#	v.pc_tax_revenue[t,r] = pctax
+# just before before temp_C,
+
 include("MimiNICE_recycle_time_varying.jl")
 recycle_share = ones(12,5) .* 0.2
 results_folder = "optimal_equal_global_recycling"
 include("instantiate_model_in_interface.jl")
 include("optimize_recycle.jl")
 
-# 30% of tax revenue is the administrative cost
-# must change nice_revenue_recycling_component_time_varying.jl
-#  multiply 0.7 times RHS of line 78
-include("MimiNICE_recycle_time_varying.jl")
-results_folder = "admin_burden_70_percent_tax"
-include("instantiate_model_in_interface.jl")
-include("optimize_recycle.jl")
+

@@ -16,10 +16,10 @@ elasticity_studies = DataFrame(load(joinpath(@__DIR__, "..", "data", "elasticity
 un_population_data = convert(Matrix, DataFrame(load(joinpath(@__DIR__, "..", "data", "UN_medium_population_scenario.csv"), skiplines_begin=3))[:, 3:end]) ./ 1000
 
 # Load quintile income distribution data that remains fixed over time (these shares are an update from the original NICE income distributions).
-income_distribution_raw = DataFrame(load(joinpath(@__DIR__, "..", "data", "constant_quintile_distributions_consumption.csv")))
+consumption_distribution_raw = DataFrame(load(joinpath(@__DIR__, "..", "data", "constant_quintile_distributions_consumption.csv")))
 
 # Clean up and organize time-varying income distribution data into required NICE format (time × regions × quintiles).
-income_distributions = get_quintile_income_shares(income_distribution_raw)
+consumption_distributions = get_quintile_income_shares(consumption_distribution_raw)
 
 # -------------------------------------------------
 # -------------------------------------------------
@@ -50,12 +50,12 @@ function create_nice_recycle()
 
     set_param!(nice_rr, :nice_neteconomy, :l, un_population_data)
 
-    set_param!(nice_rr, :nice_recycle, :min_study_gdp, minimum(elasticity_studies.GDP))
-    set_param!(nice_rr, :nice_recycle, :max_study_gdp, maximum(elasticity_studies.GDP))
+    set_param!(nice_rr, :nice_recycle, :min_study_gdp, minimum(elasticity_studies.pcGDP))
+    set_param!(nice_rr, :nice_recycle, :max_study_gdp, maximum(elasticity_studies.pcGDP))
     set_param!(nice_rr, :nice_recycle, :elasticity_intercept, meta_intercept)
     set_param!(nice_rr, :nice_recycle, :elasticity_slope, meta_slope)
     set_param!(nice_rr, :nice_recycle, :regional_population, un_population_data)
-    set_param!(nice_rr, :nice_recycle, :quintile_income_shares, income_distributions)
+    set_param!(nice_rr, :nice_recycle, :quintile_income_shares, consumption_distributions)
     set_param!(nice_rr, :nice_recycle, :damage_elasticity, 1.0)
     set_param!(nice_rr, :nice_recycle, :recycle_share, ones(12,5).*0.2)
     set_param!(nice_rr, :nice_recycle, :global_carbon_tax, zeros(n_steps))
