@@ -144,25 +144,25 @@ end
 function meta_regression(Data)
 
     # Sort study data by region and country names.
-    sort!(Data, [:Region, :Country])
+    sort!(Data, [:Region, :CountryA3])
     n = size(Data, 1)
 
     # Allocate array to store elastcities.
     elasticities = zeros(n)
 
     # Isolate variables needed for each run (quintile fuel spending and income shares).
-    fuel_shares   = [:Q1FS, :Q2FS, :Q3FS, :Q4FS, :Q5FS]
-    income_shares = [:Q1IncS, :Q2IncS, :Q3IncS, :Q4IncS, :Q5IncS]
+    cost_shares   = [:costS1, :costS2, :costS3, :costS4, :costS5]
+    exp_shares = [:e1, :e2, :e3, :e4, :e5]
 
     # Loop over each study and calculate elasticity with a log-log regression.
     for i = 1:n
 
         # Take logs of variables
-        log_income_share = log.(Vector(Data[i, income_shares]))
-        log_fuel_total   = log.(Vector(Data[i, fuel_shares]) .* Vector(Data[i, income_shares]))
+        log_exp_share = log.(Vector(Data[i, exp_shares]))
+        log_cost_share= log.(Vector(Data[i, cost_shares]))
 
         # Run log-log regression and store elasticity.
-        B, V   = regress(log_fuel_total, log_income_share)
+        B, V   = regress(log_cost_share, log_exp_share)
         elasticities[i] = B[2]
     end
 

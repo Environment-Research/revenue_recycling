@@ -77,6 +77,13 @@
             v.abatement_cost_dist[t,r,:] = regional_quintile_distribution(v.CO₂_income_elasticity[t,r], p.quintile_income_shares[t,r,:])
             v.carbon_tax_dist[t,r,:]     = regional_quintile_distribution(v.CO₂_income_elasticity[t,r], p.quintile_income_shares[t,r,:])
             v.damage_dist[t,r,:]         = regional_quintile_distribution(p.damage_elasticity, p.quintile_income_shares[t,r,:])
+            #####these lines need to be uncommented in order to get the global recycling
+              # end 
+              
+              # pctax = sum(v.tax_revenue[t,:]) / sum(p.regional_population[t,:]) / 1e9
+
+              # for r in d.regions
+              # v.pc_tax_revenue[t,r] = pctax
 
             # Create a temporary variable used to calculate NICE baseline quintile consumption (just for convenience).
             temp_C = 5.0 * p.CPC[t,r] * (1.0 + p.DAMFRAC[t,r]) / (1.0 - p.ABATEFRAC[t,r])

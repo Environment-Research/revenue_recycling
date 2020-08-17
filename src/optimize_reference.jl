@@ -15,6 +15,8 @@ reference_objective = construct_nice_recycle_objective(nice, revenue_recycling =
 reference_opt_global = Opt(global_opt_algorithm, n_objectives)
 
 # Set upper and lower bounds for global CO₂ tax (upper bound = maximum RICE backstop prices).
+upper_bound = maximum(rice_backstop_prices, dims=2)[2:(n_objectives+1)]
+
 lower_bounds!(reference_opt_global, zeros(n_objectives))
 upper_bounds!(reference_opt_global, upper_bound)
 

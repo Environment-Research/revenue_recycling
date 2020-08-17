@@ -111,6 +111,8 @@ bound_gdp_elasticity = true
 results_folder = "bounded_GDP"
 include("instantiate_model_in_interface.jl")
 include("optimize_recycle.jl")
+include("instantiate_model_in_interface.jl")
+include("optimize_reference.jl")
 
 # bottom quintile gets 40% of revenue and rest get 15% each
 bound_gdp_elasticity = false
