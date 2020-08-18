@@ -298,6 +298,228 @@ end
 
 
 #######################################################################################################################
+# CREATE AN INSTANCE OF FAIR TO USE IN OPTIMIZATION WITH NICE
+#######################################################################################################################
+# Description: This function creates a version of FAIR v1.3 that can be used in an optimization with NICE. It removes
+#              all non-CO₂ radiative forcing components (instead it will take in the endgoenous CO₂ emissions and
+#              exogenous non-CO₂ forcings from NICE). It also modifies FAIR to run from 2005-2595 (rather than its
+#              default of 1765-2500).
+#----------------------------------------------------------------------------------------------------------------------
+
+function create_fair_for_opt()
+
+    #----- Initial Data and Index Prep -----#
+
+    # Set the default start and end years for FAIR.
+    fair_start_year = 1765
+    fair_end_year   = 2500
+
+    # Set the default start and end years for NICE.
+    nice_start_year = 2005
+    nice_end_year   = 2595
+
+    # Set annual time steps for NICE and calculate number of annual years.
+    nice_annual_years  = collect(nice_start_year:nice_end_year)
+    n_annual_nice      = length(nice_annual_years)
+
+    # Calculate FAIR index for year 2005.
+    fair_2005_index = findfirst(x -> x == 2005, fair_start_year:fair_end_year)
+
+    # Load RCP4.5 concentrations and get N₂O concentrations (needed for CO₂ forcing calculations in FAIR).
+    rcp45_concentrations = DataFrame(load(joinpath(@__DIR__, "..", "data", "RCP45_concentrations.csv"), skiplines_begin=37))
+    rcp45_n2o_raw = rcp45_concentrations.N2O
+
+    # Isolate RCP4.5 N₂O data for 2005-2500 (start of NICE to end of RCP data). Then extend to 2595 assuming concentrations remain fixed at 2500 value.
+    rcp45_n2o = zeros(n_annual_nice)
+    rcp45_n2o[1:length(2005:2500)] = rcp45_n2o_raw[fair_2005_index:end]
+    rcp45_n2o[length(2005:2500):end] .= rcp45_n2o_raw[end]
+
+    #----- Create Modified Version of FAIR for NICE -----#
+
+    # Load and run a default version of FAIR.
+    fair = MimiFAIR13.create_fair(rcp_scenario="RCP45")
+    run(fair)
+
+    # Get initial CO₂ concentration and CO₂ stock perturbation (for NICE years).
+    Cacc_2005 = fair[:co2_cycle, :Cacc][fair_2005_index]
+    CO2_2004  = fair[:co2_cycle, :C][(fair_2005_index-1)]
+
+    # Remove all FAIR components other than CO₂, radiative forcing, and temperature (use NICE exogenous forcing values).
+    delete!(fair, :ch4_cycle)
+    delete!(fair, :n2o_cycle)
+    delete!(fair, :other_ghg_cycles)
+    delete!(fair, :ch4_rf)
+    delete!(fair, :n2o_rf)
+    delete!(fair, :other_ghg_rf)
+    delete!(fair, :trop_o3_rf)
+    delete!(fair, :strat_o3_rf)
+    delete!(fair, :aerosol_direct_rf)
+    delete!(fair, :aerosol_indirect_rf)
+    delete!(fair, :bc_snow_rf)
+    delete!(fair, :landuse_rf)
+    delete!(fair, :contrails_rf)
+
+    # Reset FAIR time dimension to NICE years (annual version).
+    set_dimension!(fair, :time, nice_annual_years)
+
+    # Set placeholder value for CO₂ emissions.
+    set_param!(fair, :co2_cycle, :E, ones(n_annual_nice))
+
+    #Set initial Cacc perturbation.
+    set_param!(fair, :co2_cycle, :Cacc_0, Cacc_2005)
+
+    # Set initial (2004) atmospheric CO₂ concentration.
+    set_param!(fair, :co2_cycle, :CO2_0, CO2_2004)
+
+    # Set RCP4.5 N₂O concentrations for CO₂ radiative forcing calculations.
+    set_param!(fair, :co2_rf, :N₂O, rcp45_n2o)
+
+    # Set placeholder for NICE exogenous forcings.
+    set_param!(fair, :total_rf, :F_exogenous, ones(n_annual_nice))
+
+    # Set all other radiative forcings to zero.
+    set_param!(fair, :total_rf, :F_volcanic, zeros(n_annual_nice))
+    set_param!(fair, :total_rf, :F_solar, zeros(n_annual_nice))
+    set_param!(fair, :total_rf, :F_CH₄, zeros(n_annual_nice))
+    set_param!(fair, :total_rf, :F_CH₄_H₂O, zeros(n_annual_nice))
+    set_param!(fair, :total_rf, :F_N₂O, zeros(n_annual_nice))
+    set_param!(fair, :total_rf, :F_other_ghg, zeros(n_annual_nice, 28))
+    set_param!(fair, :total_rf, :F_trop_O₃, zeros(n_annual_nice))
+    set_param!(fair, :total_rf, :F_strat_O₃, zeros(n_annual_nice))
+    set_param!(fair, :total_rf, :F_aerosol_direct, zeros(n_annual_nice))
+    set_param!(fair, :total_rf, :F_aerosol_indirect, zeros(n_annual_nice))
+    set_param!(fair, :total_rf, :F_bcsnow, zeros(n_annual_nice))
+    set_param!(fair, :total_rf, :F_landuse, zeros(n_annual_nice))
+    set_param!(fair, :total_rf, :F_contrails, zeros(n_annual_nice))
+
+    # Return modified version of FAIR.
+    return fair
+end
+
+
+
+#######################################################################################################################
+# LINEARLY INTERPOLATE MODEL RESULTS TO ANNUAL VALUES
+#######################################################################################################################
+# Description: This function uses linear interpolation to create an annual time series from the model results.
+#
+# Function Arguments:
+#
+#       data    = The non-annual model results to be interpolated
+#       spacing = Length of time steps between model output.
+#----------------------------------------------------------------------------------------------------------------------
+
+function interpolate_to_annual(data, spacing)
+
+    # Create an interpolation object for the data (assume first and last points are end points, e.g. no interpolation beyond support).
+    interp_linear = interpolate(data, BSpline(Linear()))
+
+    # Create points to interpolate for (based on spacing term).
+    interp_points = collect(1:(1/spacing):length(data))
+
+    # Carry out interpolation.
+    return interp_linear[interp_points]
+end
+
+
+
+function construct_fair_recycle_objective(nice::Model, n_loops::Int; revenue_recycling::Bool=true)
+
+    # Run user-specified instance of NICE to obtain some values.
+    run(nice)
+
+    # Extract backstop prices from NICE and convert to dollars.
+    nice_backstop_prices = nice[:emissions, :pbacktime] .* 1000
+
+    # Extract exogenous radiative forcing scenario from NICE and convert to annual values.
+    annual_nice_exog_rf = interpolate_to_annual(nice[:radiativeforcing, :forcoth], 10)
+
+    # Get an instance of FAIR to use in iterative optimization.
+    fair = create_fair_for_opt()
+
+    # Set FAIR exogenous forcing to annualized NICE exogenous forcing scenario.
+    set_param!(fair, :total_rf, :F_exogenous, annual_nice_exog_rf)
+
+    # Find number of timesteps across NICE model time horizon.
+    n_nice_decadal = length(dim_keys(nice, :time))
+
+    # Get decadal NICE indices for annual FAIR years (2005-2595)
+    nice_decadal_indices = findall((in)(collect(2005:10:2595)), (collect(2005:2595)))
+
+    # Pre-allocate matrix to store optimal tax and mitigation rates at 10-year time steps.
+    optimal_CO₂_tax        = zeros(n_nice_decadal)
+    optimal_CO₂_mitigation = zeros(n_nice_decadal, 12)
+
+    # Create a function to optimize user-specified model for (i) revenue recycling and (ii) reference case.
+    fair_recycle_objective =
+
+        if revenue_recycling == true
+
+            # Create revenue recycling version of function.
+            function(opt_tax::Array{Float64,1})
+
+                # Calculate mitigation rate resulting from global carbon tax.
+                optimal_CO₂_tax[:], optimal_CO₂_mitigation[:,:] = mu_from_tax(opt_tax, nice_backstop_prices)
+
+                # Update CO₂ mitigation rate and global CO₂ tax in NICE.
+                set_param!(nice, :emissions, :MIU, optimal_CO₂_mitigation)
+                set_param!(nice, :nice_recycle, :global_carbon_tax, optimal_CO₂_tax)
+                run(nice)
+
+                for loops = 1:n_loops
+
+                    # Run FAIR with annualized NICE CO₂ emissions to calculate temperature.
+                    set_param!(fair, :co2_cycle, :E, interpolate_to_annual(nice[:emissions, :E], 10))
+                    run(fair)
+
+                    # Set FAIR temperature projections in NICE.
+                    set_param!(nice, :sealevelrise, :TATM, fair[:temperature, :T][nice_decadal_indices])
+                    set_param!(nice, :damages, :TATM, fair[:temperature, :T][nice_decadal_indices])
+                    run(nice)
+                end
+
+                # Return total welfare.
+                return nice[:nice_welfare, :welfare]
+            end
+
+        else
+
+            # Create reference version of function without revenue recycling.
+            function(opt_tax::Array{Float64,1})
+
+                # Calculate mitigation rate resulting from global carbon tax.
+                optimal_CO₂_tax[:], optimal_CO₂_mitigation[:,:] = mu_from_tax(opt_tax, nice_backstop_prices)
+
+                # Update CO₂ mitigation rate in NICE.
+                # Set tax in recycling component to $0 yielding no tax revenue (i.e. switch off revenue recycling).
+                set_param!(nice, :emissions, :MIU, optimal_CO₂_mitigation)
+                set_param!(nice, :nice_recycle, :global_carbon_tax, zeros(n_nice_decadal))
+                run(nice)
+
+                for loops = 1:n_loops
+
+                    # Run FAIR with annualized NICE CO₂ emissions to calculate temperature.
+                    set_param!(fair, :co2_cycle, :E, interpolate_to_annual(nice[:emissions, :E], 10))
+                    run(fair)
+
+                    # Set FAIR temperature projections in NICE.
+                    set_param!(nice, :sealevelrise, :TATM, fair[:temperature, :T][nice_decadal_indices])
+                    set_param!(nice, :damages, :TATM, fair[:temperature, :T][nice_decadal_indices])
+                    run(nice)
+                end
+
+                # Return total welfare.
+                return nice[:nice_welfare, :welfare]
+            end
+        end
+
+    # Return the objective function.
+    return fair_recycle_objective
+end
+
+
+
+#######################################################################################################################
 # CREATE RESULT DIRECTORIES AND SAVE SPECIFIC MODEL OUTPUT
 #######################################################################################################################
 # Description: This function will create a folder directory to store results (dividing model output by global,
