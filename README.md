@@ -1,4 +1,4 @@
-## Initial Code for NICE + Revenue Recycling
+## Code for NICE + Revenue Recycling
 
 ### How To Install Required Packages
 
