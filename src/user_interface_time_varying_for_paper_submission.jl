@@ -273,3 +273,28 @@ include("instantiate_model_in_interface.jl")
 include("optimize_recycle.jl")
 
 
+############################################################################################################################################
+
+# Add iterative optimzation with FAIR (code slightly separate from above model runs because it requires different models/functions).
+using MimiFAIR13, Interpolations
+
+# Reset model parameters to default values.
+ρ = 0.015
+η = 1.5
+damage_elasticity = 1.0
+recycle_share = ones(12,5) .* 0.2
+bound_gdp_elasticity = false
+quintile_income_scenario = "constant"
+
+# Reset optimization parameters to default values (note FAIR optimziation just uses a local optimization due to computational burden of iterative approach).
+run_reference_case = true
+n_objectives = 45
+n_fair_loops = 4
+local_opt_algorithm = :LN_SBPLX
+local_stop_time = 800
+local_tolerance = 1e-11
+results_folder = "FAIR_climate_model"
+
+# Initialize BAU and base version of NICE with revenue recucling.
+include("instantiate_model_in_interface.jl")
+include("optimize_with_FAIR.jl")
