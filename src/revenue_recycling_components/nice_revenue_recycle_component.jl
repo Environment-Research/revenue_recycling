@@ -15,6 +15,13 @@
     max_study_gdp            = Parameter()                                 # Maximum observed per capita GDP value found in elasticity studies ($/person).
     elasticity_intercept     = Parameter()                                 # Intercept term to estimate time-varying income elasticity.
     elasticity_slope         = Parameter()                                 # Slope term to estimate time-varying income elasticity.
+    elasticity_robustness    = Parameter()                                 # Chooses which elasticity robustness run to perform
+    meta_n                   = Parameter()                                 # Sample size of meta analysis (needed for robustness on slope parameters)
+    meta_MSE                 = Parameter()                                 # Mean Sq Error in meta analysis (needed for robustness on slope parameters)
+    meta_xbar                = Parameter()                                 # Avg. Log GDP per cap in meta analysis (needed for robustness on slope parameters)
+    meta_xspread             = Parameter()                                 # Sum of sq. dev. from avg Log GDP per cap (needed for robustness on slope parameters)
+    elasticity_lower         = Parameter()                                 # Lower percentile of elasticity estimate for robustness
+    elasticity_upper         = Parameter()                                 # Upper percentile of elasticity estimate for robustness
     global_carbon_tax        = Parameter(index=[time])                     # Carbon tax ($/ton CO₂).
     regional_population      = Parameter(index=[time, regions])            # Regional population levels (millions of people).
     ABATEFRAC                = Parameter(index=[time, regions])            # Cost of CO₂ emission reductions as share of gross economic output.
@@ -52,7 +59,6 @@
 
             # Calculate time-varying income elasticity of CO₂ price exposure (requires pc_gdp units in $/person).
             # Note, hold elasticity constant at boundary value if GDP falls outside the study support range.
-
             if v.pc_gdp[t,r] < p.min_study_gdp
                 # GDP below observed study values.
                 v.CO₂_income_elasticity[t,r] = p.elasticity_intercept + p.elasticity_slope * log(p.min_study_gdp)
@@ -62,6 +68,17 @@
             else
                 # GDP within observed study values.
                 v.CO₂_income_elasticity[t,r] = p.elasticity_intercept + p.elasticity_slope * log(v.pc_gdp[t,r])
+            end
+
+            ## Add robustness exercises here where we alter CO₂_income_elasticity
+            if elasticity_robustness==1
+                v.CO₂_income_elasticity[t,r] = v.CO₂_income_elasticity[t,r] - 1.96*sqrt(p.meta_MSE*(1/p.meta_n + (v.pc_gdp[t,r] - p.meta_xbar)^2/p.meta_xspread)) 
+            elseif elasticity_robustness==2
+                v.CO₂_income_elasticity[t,r] = v.CO₂_income_elasticity[t,r] + 1.96*sqrt(p.meta_MSE*(1/p.meta_n + (v.pc_gdp[t,r] - p.meta_xbar)^2/p.meta_xspread))
+            elseif elasticity_robustness==3
+                v.CO₂_income_elasticity[t,r] = p.elasticity_lower
+            elseif elasticity_robustness==4
+                v.CO₂_income_elasticity[t,r] = p.elasticity_upper
             end
 
             # Calculate total carbon tax revenue for each region (dollars).

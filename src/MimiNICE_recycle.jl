@@ -39,8 +39,8 @@ function create_nice_recycle()
     # ----- Assign Model Parameters ----- #
     #-------------------------------------#
 
-    # First, perform a meta-regression based on study results to calculate elasticity vs. ln gdp per capita relationship.
-    meta_intercept, meta_slope = meta_regression(elasticity_studies)
+    # First, perform a meta-regression based on study results to calculate elasticity vs. ln gdp per capita relationship and objects for robustness.
+    meta_intercept, meta_slope, meta_n, meta_MSE, meta_xbar, meta_xspread = meta_regression(elasticity_studies)
 
     # Note, revenue recycling model now uses quintile consumption values calculated in nice_recycle component (not nice_neteconomy).
     set_param!(nice_rr, :grosseconomy, :l, un_population_data)
@@ -52,6 +52,13 @@ function create_nice_recycle()
     set_param!(nice_rr, :nice_recycle, :max_study_gdp, maximum(elasticity_studies.GDP))
     set_param!(nice_rr, :nice_recycle, :elasticity_intercept, meta_intercept)
     set_param!(nice_rr, :nice_recycle, :elasticity_slope, meta_slope)
+    set_param!(nice_rr, :nice_recycle, :elasticity_robustness, 0)
+    set_param!(nice_rr, :nice_recycle, :meta_n, meta_n)
+    set_param!(nice_rr, :nice_recycle, :meta_MSE, meta_MSE)
+    set_param!(nice_rr, :nice_recycle, :meta_xbar, meta_xbar)
+    set_param!(nice_rr, :nice_recycle, :meta_xspread, meta_xspread)
+    set_param!(nice_rr, :nice_recycle, :elasticity_lower, elasticity_lower)
+    set_param!(nice_rr, :nice_recycle, :elasticity_upper, elasticity_upper)
     set_param!(nice_rr, :nice_recycle, :regional_population, un_population_data)
     set_param!(nice_rr, :nice_recycle, :quintile_income_shares, income_distribution)
     set_param!(nice_rr, :nice_recycle, :damage_dist, quintile_distribution(1.0, income_distribution))

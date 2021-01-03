@@ -143,8 +143,8 @@ end
 
 function meta_regression(Data)
 
-    # Sort study data by region and country names.
-    sort!(Data, [:Region, :CountryA3])
+    # Sort study data by region and country names. [Kevin: "my machine didn't like the sort!() version of this"]
+    Data = sort(Data, [:Region, :CountryA3])
     n = size(Data, 1)
 
     # Allocate array to store elastcities.
@@ -167,11 +167,19 @@ function meta_regression(Data)
     end
 
     # Using these elasticities, run meta-regression (elasticity vs. ln gdp per capita).
-    meta_B, meta_V  = regress(elasticities, log.(Data.pcGDP))
-    meta_intercept  = meta_B[1]
-    meta_slope      = meta_B[2]
+    meta_B, meta_V              = regress(elasticities, log.(Data.pcGDP2020db))
+    meta_intercept              = meta_B[1]
+    meta_slope                  = meta_B[2]
+    meta_n                      = n
+    meta_MSE                    = mean((elasticities - (meta_intercept .+ meta_slope*log.(Data.pcGDP2020db))).^2)
+    meta_xbar                   = mean(log.(Data.pcGDP2020db))
+    meta_xspread                = sum((log.(Data.pcGDP2020db) .- xbar).^2)
+    percentile_for_robustness   = .10
+    sort!(elasticities)
+    elasticity_upper            = elasticities[convert(Int, round((1-percentile_for_robustness)*n))]
+    elasticity_lower            = elasticities[convert(Int, round(percentile_for_robustness*n + 0.51))] ## the 0.51 so it never rounds to 0th entry
 
-    return meta_intercept, meta_slope
+    return meta_intercept, meta_slope, meta_n, meta_MSE, meta_xbar, meta_xspread, elasticity_lower, elasticity_upper
 end
 
 
