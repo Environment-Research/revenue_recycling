@@ -22,8 +22,14 @@ include("MimiNICE_recycle_time_varying.jl")
 # Income elasticity of climate damages (1 = proportional to income, -1 = inversely proportional to income).
 damage_elasticity = 1.0
 
+# Share of carbon tax revenue that is lost and cannot be recycled (1 = 100% of revenue lost, 0 = nothing lost)
+lost_revenue_share = 0.0
+
+# Shares of regional revenues that are recycled globally as international transfers (1 = 100% of revenue recycled globally).
+global_recycle_share = zeros(12)
+
 # Share of recycled carbon tax revenue that each region-quintile pair receives (row = region, column = quintile)
-recycle_share = ones(12,5) .* 0.2
+quintile_recycle_share = ones(12,5) .* 0.2
 
 # Should the time-varying elasticity values only change across the range of GDP values from the studies?
 # true = limit calculations to study gdp range, false = allow calculations for 0 to +Inf GDP.
@@ -93,18 +99,20 @@ run(bau_model)
 rice_backstop_prices  = bau_model[:emissions, :pbacktime] .* 1000
 
 # Now set user-specified parameter settings.
-set_param!(bau_model, :emissions,    :MIU, zeros(n_steps, 12))
-set_param!(bau_model, :nice_recycle, :damage_elasticity, damage_elasticity)
-set_param!(bau_model, :nice_recycle, :quintile_income_shares, income_distributions)
-set_param!(bau_model, :nice_recycle, :recycle_share, recycle_share)
-set_param!(bau_model, :nice_recycle, :global_carbon_tax, zeros(n_steps))
-set_param!(bau_model, :nice_welfare, :rho, ρ)
-set_param!(bau_model, :nice_welfare, :eta, η)
+update_param!(bau_model, :MIU, zeros(n_steps, 12))
+update_param!(bau_model, :damage_elasticity, damage_elasticity)
+update_param!(bau_model, :quintile_income_shares, income_distributions)
+update_param!(bau_model, :recycle_share, quintile_recycle_share)
+update_param!(bau_model, :lost_revenue_share, lost_revenue_share)
+update_param!(bau_model, :global_recycle_share, global_recycle_share)
+update_param!(bau_model, :global_carbon_tax, zeros(n_steps))
+update_param!(bau_model, :rho, ρ)
+update_param!(bau_model, :eta, η)
 
 # If selected, allow elasticities to be calculated for all GDP values (not just those observed in studies).
 if bound_gdp_elasticity == false
-    set_param!(bau_model, :nice_recycle, :min_study_gdp, 1e-10)
-    set_param!(bau_model, :nice_recycle, :max_study_gdp, +Inf)
+    update_param!(bau_model, :min_study_gdp, 1e-10)
+    update_param!(bau_model, :max_study_gdp, +Inf)
 end
 
 run(bau_model)
@@ -119,16 +127,18 @@ run(bau_model)
 nice_rev_recycle = create_nice_recycle()
 
 # Set user-specified parameter settings.
-set_param!(nice_rev_recycle, :nice_recycle, :damage_elasticity, damage_elasticity)
-set_param!(nice_rev_recycle, :nice_recycle, :quintile_income_shares, income_distributions)
-set_param!(nice_rev_recycle, :nice_recycle, :recycle_share, recycle_share)
-set_param!(nice_rev_recycle, :nice_welfare, :rho, ρ)
-set_param!(nice_rev_recycle, :nice_welfare, :eta, η)
+update_param!(nice_rev_recycle, :damage_elasticity, damage_elasticity)
+update_param!(nice_rev_recycle, :quintile_income_shares, income_distributions)
+update_param!(nice_rev_recycle, :recycle_share, quintile_recycle_share)
+update_param!(nice_rev_recycle, :lost_revenue_share, lost_revenue_share)
+update_param!(nice_rev_recycle, :global_recycle_share, global_recycle_share)
+update_param!(nice_rev_recycle, :rho, ρ)
+update_param!(nice_rev_recycle, :eta, η)
 
 # If selected, allow elasticities to be calculated for all GDP values (not just those observed in studies).
 if bound_gdp_elasticity == false
-    set_param!(nice_rev_recycle, :nice_recycle, :min_study_gdp, 1e-10)
-    set_param!(nice_rev_recycle, :nice_recycle, :max_study_gdp, +Inf)
+    update_param!(nice_rev_recycle, :min_study_gdp, 1e-10)
+    update_param!(nice_rev_recycle, :max_study_gdp, +Inf)
 end
 
 #---------------------------------------------------------------------
@@ -201,8 +211,8 @@ println("Convergence result = ", recycle_convergence)
 recycle_full_opt_tax, recycle_opt_regional_mitigation = mu_from_tax(recycle_opt_tax, rice_backstop_prices)
 
 # Run model under optimal policy.
-set_param!(nice_rev_recycle, :emissions, :MIU, recycle_opt_regional_mitigation)
-set_param!(nice_rev_recycle, :nice_recycle, :global_carbon_tax, recycle_full_opt_tax)
+update_param!(nice_rev_recycle, :MIU, recycle_opt_regional_mitigation)
+update_param!(nice_rev_recycle, :global_carbon_tax, recycle_full_opt_tax)
 run(nice_rev_recycle)
 
 # Save results.
@@ -220,16 +230,18 @@ if run_reference_case == true
     nice_reference = create_nice_recycle()
 
     # Set user-specified parameter settings.
-    set_param!(nice_reference, :nice_recycle, :damage_elasticity, damage_elasticity)
-    set_param!(nice_reference, :nice_recycle, :quintile_income_shares, income_distributions)
-    set_param!(nice_reference, :nice_recycle, :recycle_share, recycle_share)
-    set_param!(nice_reference, :nice_welfare, :rho, ρ)
-    set_param!(nice_reference, :nice_welfare, :eta, η)
+    update_param!(nice_reference, :damage_elasticity, damage_elasticity)
+    update_param!(nice_reference, :quintile_income_shares, income_distributions)
+    update_param!(nice_reference, :recycle_share, quintile_recycle_share)
+    update_param!(nice_reference, :lost_revenue_share, lost_revenue_share)
+    update_param!(nice_reference, :global_recycle_share, global_recycle_share)
+    update_param!(nice_reference, :rho, ρ)
+    update_param!(nice_reference, :eta, η)
 
     # If selected, allow elasticities to be calculated for all GDP values (not just those observed in studies).
     if bound_gdp_elasticity == false
-        set_param!(nice_reference, :nice_recycle, :min_study_gdp, 1e-10)
-        set_param!(nice_reference, :nice_recycle, :max_study_gdp, +Inf)
+        update_param!(nice_reference, :min_study_gdp, 1e-10)
+        update_param!(nice_reference, :max_study_gdp, +Inf)
     end
 
     #-------------------------------------------------------------------------------------
@@ -300,8 +312,8 @@ if run_reference_case == true
     reference_full_opt_tax, reference_opt_regional_mitigation = mu_from_tax(reference_opt_tax, rice_backstop_prices)
 
     # Run model under optimal policy.
-    set_param!(nice_reference, :emissions, :MIU, reference_opt_regional_mitigation)
-    set_param!(nice_reference, :nice_recycle, :global_carbon_tax, zeros(n_steps))
+    update_param!(nice_reference, :MIU, reference_opt_regional_mitigation)
+    update_param!(nice_reference, :global_carbon_tax, zeros(n_steps))
     run(nice_reference)
 
     # Save results.

@@ -16,7 +16,9 @@
     elasticity_intercept     = Parameter()                                 # Intercept term to estimate time-varying income elasticity.
     elasticity_slope         = Parameter()                                 # Slope term to estimate time-varying income elasticity.
     damage_elasticity        = Parameter()                                 # Income elasticity of climate damages (1 = proportional to income)
+    lost_revenue_share       = Parameter()                                 # Share of carbon tax revenue that is lost and cannot be recycled (1 = 100% of revenue lost, 0 = nothing lost)
     global_carbon_tax        = Parameter(index=[time])                     # Carbon tax ($/ton CO₂).
+    global_recycle_share     = Parameter(index=[regions])                  # Shares of regional revenues that are recycled globally as international transfers (1 = 100% of revenue recycled globally).
     regional_population      = Parameter(index=[time, regions])            # Regional population levels (millions of people).
     ABATEFRAC                = Parameter(index=[time, regions])            # Cost of CO₂ emission reductions as share of gross economic output.
     DAMFRAC                  = Parameter(index=[time, regions])            # Climate damages as share of gross output.
@@ -30,10 +32,11 @@
     # Model Variables
     # --------------------
 
+    global_pc_revenue        = Variable(index=[time])                      # Per capita carbon tax revenue from globally recycled regional revenues ($1000s/person).
     pc_gdp                   = Variable(index=[time, regions])             # Per capita output net of abatement and damages (2005 USD / person).
     CO₂_income_elasticity    = Variable(index=[time, regions])             # Elasticity of CO₂ price exposure with respect to income.
-    tax_revenue              = Variable(index=[time, regions])             # Total carbon tax revenue (2005 USD)
-    pc_tax_revenue           = Variable(index=[time, regions])             # Total per capita carbon tax revenue ($1000s/person)
+    tax_revenue              = Variable(index=[time, regions])             # Total carbon tax revenue (2005 USD).
+    regional_pc_revenue      = Variable(index=[time, regions])             # Total per capita carbon tax revenue, including any international transfers ($1000s/person).
     damage_dist              = Variable(index=[time, regions, quintiles])  # Quintile share of regional climate damages (can vary over time).
     abatement_cost_dist      = Variable(index=[time, regions, quintiles])  # Time-varying regional CO₂ tax distribution share by quintile.
     carbon_tax_dist          = Variable(index=[time, regions, quintiles])  # Time-varying regional CO₂ abatement cost distribution share by quintile.
@@ -67,23 +70,22 @@
 
             # Calculate total carbon tax revenue for each region (dollars).
             # Note, emissions in GtC and tax in dollars, so scale by 1e9.
-            v.tax_revenue[t,r] = p.industrial_emissions[t,r] * p.global_carbon_tax[t] * 1e9
+            v.tax_revenue[t,r] = (p.industrial_emissions[t,r] * p.global_carbon_tax[t] * 1e9) * (1.0 - p.lost_revenue_share)
+        end
 
-            # Calculate per capita tax revenue for each region (convert to $1000s/person to match pc consumption units).
-            # Note, tax in dollars and population in millions, so scale by 1e9.
-            v.pc_tax_revenue[t,r] = v.tax_revenue[t,r] / p.regional_population[t,r] / 1e9
+        # Calculate per capita tax revenue from globally recycled revenue (convert to $1000s/person to match pc consumption units).
+        # Note, tax in dollars and population in millions, so scale by 1e9.
+        v.global_pc_revenue[t] = sum(v.tax_revenue[t,:] .* p.global_recycle_share[:]) / sum(p.regional_population[t,:]) / 1e9
+
+        for r in d.regions
+
+            # Calculate total recycled per capita tax revenue for each region (this also includes the globally recycled revenue).
+            v.regional_pc_revenue[t,r] = (v.tax_revenue[t,r] * (1-p.global_recycle_share[r])) / p.regional_population[t,r] / 1e9 + v.global_pc_revenue[t]
 
             # Calculate quintile distribution shares of CO₂ tax burden and mitigation costs (assume both distributions are equal) and cliamte damages.
             v.abatement_cost_dist[t,r,:] = regional_quintile_distribution(v.CO₂_income_elasticity[t,r], p.quintile_income_shares[t,r,:])
             v.carbon_tax_dist[t,r,:]     = regional_quintile_distribution(v.CO₂_income_elasticity[t,r], p.quintile_income_shares[t,r,:])
             v.damage_dist[t,r,:]         = regional_quintile_distribution(p.damage_elasticity, p.quintile_income_shares[t,r,:])
-            #####these lines need to be uncommented in order to get the global recycling
-              # end 
-              
-              # pctax = sum(v.tax_revenue[t,:]) / sum(p.regional_population[t,:]) / 1e9
-
-              # for r in d.regions
-              # v.pc_tax_revenue[t,r] = pctax
 
             # Create a temporary variable used to calculate NICE baseline quintile consumption (just for convenience).
             temp_C = 5.0 * p.CPC[t,r] * (1.0 + p.DAMFRAC[t,r]) / (1.0 - p.ABATEFRAC[t,r])
@@ -99,10 +101,10 @@
 
                 # Subtract tax revenue from each quintile based on quintile CO₂ tax burden distributions.
                 # Note, per capita tax revenue and consumption should both be in 1000s dollars/person.
-                v.qc_post_tax[t,r,q] = v.qc_post_damage_abatement[t,r,q] - (5 * v.pc_tax_revenue[t,r] * v.carbon_tax_dist[t,r,q])
+                v.qc_post_tax[t,r,q] = v.qc_post_damage_abatement[t,r,q] - (5 * v.regional_pc_revenue[t,r] * v.carbon_tax_dist[t,r,q])
 
                 # Recycle tax revenue by adding shares back to all quintiles (assume recycling shares constant over time).
-                v.qc_post_recycle[t,r,q] = v.qc_post_tax[t,r,q] + (5 * v.pc_tax_revenue[t,r] * p.recycle_share[r,q])
+                v.qc_post_recycle[t,r,q] = v.qc_post_tax[t,r,q] + (5 * v.regional_pc_revenue[t,r] * p.recycle_share[r,q])
             end
         end
     end
