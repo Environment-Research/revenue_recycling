@@ -240,8 +240,8 @@ function construct_nice_recycle_objective(m::Model; revenue_recycling::Bool=true
                 # Calculate mitigation rate resulting from global carbon tax.
                 optimal_CO₂_tax[:], optimal_CO₂_mitigation[:,:] = mu_from_tax(opt_tax, rice_backstop_prices)
                 # Update CO₂ mitigation rate and global CO₂ tax in NICE.
-                set_param!(m, :emissions, :MIU, optimal_CO₂_mitigation)
-                set_param!(m, :nice_recycle, :global_carbon_tax, optimal_CO₂_tax)
+                update_param!(m, :MIU, optimal_CO₂_mitigation)
+                update_param!(m, :global_carbon_tax, optimal_CO₂_tax)
                 run(m)
                 # Return total welfare.
                 return m[:nice_welfare, :welfare]
@@ -255,8 +255,8 @@ function construct_nice_recycle_objective(m::Model; revenue_recycling::Bool=true
                 optimal_CO₂_tax[:], optimal_CO₂_mitigation[:,:] = mu_from_tax(opt_tax, rice_backstop_prices)
                 # Update CO₂ mitigation rate in NICE.
                 # Set tax in recycling component to $0 yielding no tax revenue (i.e. switch off revenue recycling).
-                set_param!(m, :emissions, :MIU, optimal_CO₂_mitigation)
-                set_param!(m, :nice_recycle, :global_carbon_tax, zeros(n_steps))
+                update_param!(m, :MIU, optimal_CO₂_mitigation)
+                update_param!(m, :global_carbon_tax, zeros(n_steps))
                 run(m)
                 # Return total welfare.
                 return m[:nice_welfare, :welfare]
