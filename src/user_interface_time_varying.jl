@@ -38,6 +38,12 @@ bound_gdp_elasticity = false
 # Quintile income distribution scenario (options = "constant", "SSP1", "SSP2", "SSP3", "SSP4", or "SSP5")
 quintile_income_scenario = "constant"
 
+# Type of slope for regression analysis (options are :central, :steeper, :flatter, :percentile)
+regression_slope_type = :central
+
+# Value if setting the regression slope type to a specific elasticity percentile value.
+elasticity_percentile = 0.9
+
 # ------------------------------------------------------------------------------------------------
 # CHOICES ABOUT YOUR ANALYSIS & OPTIMZATION
 # ------------------------------------------------------------------------------------------------
@@ -91,7 +97,7 @@ income_distributions = get_quintile_income_shares(income_distribution_raw)
 #---------------------------------------------------------------------------------------------------
 
 # This includes the user-specifications but has no CO₂ mitigation policy (will be used to calculte global CO₂ policy).
-bau_model = create_nice_recycle()
+bau_model = create_nice_recycle(slope_type=regression_slope_type, percentile=elasticity_percentile)
 n_steps   = length(dim_keys(bau_model, :time))
 
 # Run model and extract some generic values needed to set up optimizations below.
@@ -124,7 +130,7 @@ run(bau_model)
 ##############################################################################################################
 
 # Create an instance of NICE with revenue recycling.
-nice_rev_recycle = create_nice_recycle()
+nice_rev_recycle = create_nice_recycle(slope_type=regression_slope_type, percentile=elasticity_percentile)
 
 # Set user-specified parameter settings.
 update_param!(nice_rev_recycle, :damage_elasticity, damage_elasticity)
@@ -227,7 +233,7 @@ save_nice_recycle_results(nice_rev_recycle, bau_model, recycle_full_opt_tax, rec
 if run_reference_case == true
 
     # Create an instance of NICE to run without revenue recycling.
-    nice_reference = create_nice_recycle()
+    nice_reference = create_nice_recycle(slope_type=regression_slope_type, percentile=elasticity_percentile)
 
     # Set user-specified parameter settings.
     update_param!(nice_reference, :damage_elasticity, damage_elasticity)

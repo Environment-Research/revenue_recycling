@@ -1,5 +1,5 @@
-# Load required packages.
-using CSVFiles, DataFrames, Mimi, MimiRICE2010, MimiNICE
+ # Load required packages.
+using CSVFiles, DataFrames, Mimi, MimiRICE2010, MimiNICE, Statistics
 
 # Load helper functions and revenue recycling components being added to the NICE model.
 include("helper_functions.jl")
@@ -27,7 +27,7 @@ consumption_distributions = get_quintile_income_shares(consumption_distribution_
 # -------------------------------------------------
 # -------------------------------------------------
 
-function create_nice_recycle()
+function create_nice_recycle(;slope_type::Symbol=:central, percentile::Float64=0.90)
 
     # Initialize an instance of NICE to build in revenue recycling.
     nice_rr = MimiNICE.create_nice()
@@ -43,7 +43,7 @@ function create_nice_recycle()
     #-------------------------------------#
 
     # First, perform a meta-regression based on study results to calculate elasticity vs. ln gdp per capita relationship.
-    meta_intercept, meta_slope = meta_regression(elasticity_studies)
+    meta_intercept, meta_slope = meta_regression(elasticity_studies, slope_type=slope_type, percentile=percentile)
 
     # Update parameters common to multiple components or that already have external Mimi parameters defined.
     update_param!(nice_rr, :l, un_population_data)

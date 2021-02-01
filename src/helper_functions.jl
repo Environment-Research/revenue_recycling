@@ -138,10 +138,17 @@ end
 #
 # Function Arguments:
 #
-#       Data = Independent data (x-terms) in regression coming from multiple studies.
+#       Data       = Independent data (x-terms) in regression coming from multiple studies.
+#       slope_type = The type of analysis to carry out. Options are :central, :steeper, :flatter, :percentile
+#                       :central    = returns central regression result
+#                       :steeper    = returns results for the steepest slope in the 95% confidence interval range
+#                       :flatter    = returns results for the shallowest slope in the 95% confidence interval range
+#                       :percentile = returns results for a horizontal line corresponding to a given elasticity percentile
+#       percentile = Calculate this percentile for the elasticity values (defaults to 0.9 for the 90th percentile).
+#       z_val      = z-value for a given confidence interval (defaults to 1.96 for 95% interval)
 #--------------------------------------------------------------------------------------------------------------------
 
-function meta_regression(Data)
+function meta_regression(Data; slope_type::Symbol=:central, percentile::Float64=0.90, z_val::Float64=1.96)
 
     # Sort study data by region and country names.
     sort!(Data, [:Region, :CountryA3])
@@ -166,14 +173,70 @@ function meta_regression(Data)
         elasticities[i] = B[2]
     end
 
+    # Calculate log of per capita GDP.
+    Data[:log_pcGDP] = log.(Data[:pcGDP])
+
     # Using these elasticities, run meta-regression (elasticity vs. ln gdp per capita).
-    meta_B, meta_V  = regress(elasticities, log.(Data.pcGDP))
+    meta_B, meta_V  = regress(elasticities, Data[:log_pcGDP])
     meta_intercept  = meta_B[1]
     meta_slope      = meta_B[2]
 
-    return meta_intercept, meta_slope
-end
+    # ------------------------------------------------------------------------------------------------------
+    # Calculate flattest and steepest slopes based on 95% confidence interval range.
+    # ------------------------------------------------------------------------------------------------------
 
+    # First, need 95% CI around regression lines (requires squared errors & "x_spread" -> (x - mean(x))²)
+
+    # Predicted elasticity values.
+    elasticity_hat = meta_intercept .+ meta_slope .* Data[:log_pcGDP]
+
+    # Calculate squared errors of elasticities and their mean.
+    sq_err = (elasticity_hat .- elasticities) .^2
+    mse = mean(sq_err)
+
+    # Calculate squared differences between per capita GDP values and their mean.
+    x_spread = (Data[:log_pcGDP] .- mean(Data[:log_pcGDP])).^2
+
+    # Calculate lower and upper confidence intervals.
+    lower_ci = elasticity_hat .- z_val * sqrt.(mse*(1/n .+ x_spread ./ sum(x_spread)))
+    upper_ci = elasticity_hat .+ z_val * sqrt.(mse*(1/n .+ x_spread ./ sum(x_spread)))
+
+    # Second, For the steepest line connect maximum point of upper CI and minimum of lower CI.
+
+    # Calculate steeper slope and intercept.
+    steeper_slope     = (maximum(upper_ci) - minimum(lower_ci)) / (minimum(Data[:log_pcGDP]) - maximum(Data[:log_pcGDP]))
+    steeper_intercept = maximum(upper_ci) - steeper_slope * minimum(Data[:log_pcGDP])
+
+    # Also calculate a shallower slope and intercept.
+    flatter_slope     = (minimum(upper_ci) - maximum(lower_ci)) / (maximum(Data[:log_pcGDP]) - minimum(Data[:log_pcGDP]))
+    flatter_intercept = minimum(upper_ci) - flatter_slope * maximum(Data[:log_pcGDP])
+
+    # ------------------------------------------------------------------------------------------------------
+    # Calculate horizontal lines for a given elasticity percentile.
+    # ------------------------------------------------------------------------------------------------------
+
+    # Horizontal line, so slope = 0.
+    percentile_slope = 0.0
+
+    # Calculate intercept for a given percentile.
+    percentile_intercept = quantile(elasticities, percentile)
+
+    # ------------------------------------------------------------------------------------------------------
+    # Return slope and intercept depending on user-specification for analysis type.
+    # ------------------------------------------------------------------------------------------------------
+
+    if slope_type == :central
+        return meta_intercept, meta_slope
+    elseif slope_type == :steeper
+        return steeper_intercept, steeper_slope
+    elseif slope_type == :flatter
+        return flatter_intercept, flatter_slope
+    elseif slope_type == :percentile
+        return percentile_intercept, percentile_slope
+    else
+        println("Incorrect regression analysis type selected. Options are :central, :steeper, :flatter, :percentile")
+    end
+end
 
 
 #######################################################################################################################
