@@ -1,7 +1,7 @@
 
 # Create an instance of FAIR used in optimzation and assign it exogenous forcing scenario from NICE.
 fair_opt = create_fair_for_opt()
-set_param!(fair_opt, :total_rf, :F_exogenous, interpolate_to_annual(bau_model[:radiativeforcing, :forcoth], 10))
+update_param!(fair_opt, :F_exogenous, interpolate_to_annual(bau_model[:radiativeforcing, :forcoth], 10))
 
 # Calculate indices from NICE corresponding to FAIR annual years
 nice_decadal_indices = findall((in)(collect(2005:10:2595)), (collect(2005:2595)))
@@ -41,20 +41,21 @@ fair_recycle_max_welfare, fair_recycle_opt_tax, fair_recycle_convergence = optim
 fair_recycle_full_opt_tax, fair_recycle_opt_regional_mitigation = mu_from_tax(fair_recycle_opt_tax, rice_backstop_prices)
 
 # Run NICE model under optimal policy.
-set_param!(nice, :emissions, :MIU, fair_recycle_opt_regional_mitigation)
-set_param!(nice, :nice_recycle, :global_carbon_tax, fair_recycle_full_opt_tax)
+update_param!(nice, :MIU, fair_recycle_opt_regional_mitigation)
+update_param!(nice, :global_carbon_tax, fair_recycle_full_opt_tax)
 run(nice)
+
+# Set placeholder
 
 # Now itrate through optimal policy version using FAIR.
 for loops = 1:n_fair_loops
 
     # Run FAIR with annualized NICE CO₂ emissions to calculate temperature.
-    set_param!(fair_opt, :co2_cycle, :E, interpolate_to_annual(nice[:emissions, :E], 10))
+    update_param!(fair_opt, :E, interpolate_to_annual(nice[:emissions, :E], 10))
     run(fair_opt)
 
     # Set FAIR temperature projections in NICE.
-    set_param!(nice, :sealevelrise, :TATM, fair_opt[:temperature, :T][nice_decadal_indices])
-    set_param!(nice, :damages, :TATM, fair_opt[:temperature, :T][nice_decadal_indices])
+    set_param!(nice, :TATM, fair_opt[:temperature, :T][nice_decadal_indices])
     run(nice)
 end
 
@@ -93,20 +94,19 @@ fair_reference_max_welfare, fair_reference_opt_tax, fair_reference_convergence =
 fair_reference_full_opt_tax, fair_reference_opt_regional_mitigation = mu_from_tax(fair_reference_opt_tax, rice_backstop_prices)
 
 # Run NICE model under optimal policy.
-set_param!(nice, :emissions, :MIU, fair_reference_opt_regional_mitigation)
-set_param!(nice, :nice_recycle, :global_carbon_tax, fair_reference_full_opt_tax)
+update_param!(nice, :MIU, fair_reference_opt_regional_mitigation)
+update_param!(nice, :global_carbon_tax, fair_reference_full_opt_tax)
 run(nice)
 
 # Now itrate through optimal policy version using FAIR.
 for loops = 1:n_fair_loops
 
     # Run FAIR with annualized NICE CO₂ emissions to calculate temperature.
-    set_param!(fair_opt, :co2_cycle, :E, interpolate_to_annual(nice[:emissions, :E], 10))
+    update_param!(fair_opt, :E, interpolate_to_annual(nice[:emissions, :E], 10))
     run(fair_opt)
 
     # Set FAIR temperature projections in NICE.
-    set_param!(nice, :sealevelrise, :TATM, fair_opt[:temperature, :T][nice_decadal_indices])
-    set_param!(nice, :damages, :TATM, fair_opt[:temperature, :T][nice_decadal_indices])
+    update_param!(nice, :TATM, fair_opt[:temperature, :T][nice_decadal_indices])
     run(nice)
 end
 

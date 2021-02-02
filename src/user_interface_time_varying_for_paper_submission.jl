@@ -143,37 +143,37 @@ include("optimize_recycle.jl")
 recycle_share = ones(12,5) .* 0.2
 results_folder = "no_climate_damages"
 include("instantiate_model_in_interface.jl")
-set_param!(nice, :sealeveldamages, :slrmultiplier, bau_model[:sealeveldamages,:slrmultiplier] .* 0)
-set_param!(nice, :damages, :a1, bau_model[:damages,:a1] .* 0)
-set_param!(nice, :damages, :a2, bau_model[:damages,:a2] .* 0)
+update_param!(nice, :slrmultiplier, bau_model[:sealeveldamages,:slrmultiplier] .* 0)
+update_param!(nice, :a1, bau_model[:damages,:a1] .* 0)
+update_param!(nice, :a2, bau_model[:damages,:a2] .* 0)
 include("optimize_recycle.jl")
 include("instantiate_model_in_interface.jl")
-set_param!(nice, :sealeveldamages, :slrmultiplier, bau_model[:sealeveldamages,:slrmultiplier] .* 0)
-set_param!(nice, :damages, :a1, bau_model[:damages,:a1] .* 0)
-set_param!(nice, :damages, :a2, bau_model[:damages,:a2] .* 0)
+update_param!(nice, :slrmultiplier, bau_model[:sealeveldamages,:slrmultiplier] .* 0)
+update_param!(nice, :a1, bau_model[:damages,:a1] .* 0)
+update_param!(nice, :a2, bau_model[:damages,:a2] .* 0)
 include("optimize_reference.jl")
 
 # double conventional damages (normal slr damages)
 results_folder = "double_climate_damages"
 include("instantiate_model_in_interface.jl")
-set_param!(nice, :damages, :a1, bau_model[:damages,:a1] .* 2)
-set_param!(nice, :damages, :a2, bau_model[:damages,:a2] .* 2)
+update_param!(nice, :a1, bau_model[:damages,:a1] .* 2)
+update_param!(nice, :a2, bau_model[:damages,:a2] .* 2)
 include("optimize_recycle.jl")
 include("instantiate_model_in_interface.jl")
-set_param!(nice, :damages, :a1, bau_model[:damages,:a1] .* 2)
-set_param!(nice, :damages, :a2, bau_model[:damages,:a2] .* 2)
+update_param!(nice, :a1, bau_model[:damages,:a1] .* 2)
+update_param!(nice, :a2, bau_model[:damages,:a2] .* 2)
 include("optimize_reference.jl")
 
 # double conventional damages (normal slr damages) + xi = -1
 damage_elasticity = -1.0
 results_folder = "double_climate_damages_elasticity_neg_1"
 include("instantiate_model_in_interface.jl")
-set_param!(nice, :damages, :a1, bau_model[:damages,:a1] .* 2)
-set_param!(nice, :damages, :a2, bau_model[:damages,:a2] .* 2)
+update_param!(nice, :a1, bau_model[:damages,:a1] .* 2)
+update_param!(nice, :a2, bau_model[:damages,:a2] .* 2)
 include("optimize_recycle.jl")
 include("instantiate_model_in_interface.jl")
-set_param!(nice, :damages, :a1, bau_model[:damages,:a1] .* 2)
-set_param!(nice, :damages, :a2, bau_model[:damages,:a2] .* 2)
+update_param!(nice, :a1, bau_model[:damages,:a1] .* 2)
+update_param!(nice, :a2, bau_model[:damages,:a2] .* 2)
 include("optimize_reference.jl")
 
 # the inequality projections
@@ -232,26 +232,26 @@ quintile_income_scenario = "constant"
 results_folder = "expenditure_share_based_studies"
 include("instantiate_model_in_interface.jl")
 meta_intercept, meta_slope = meta_regression(elasticity_studies[elasticity_studies.Type .== "Direct",:])
-set_param!(nice, :nice_recycle, :elasticity_intercept, meta_intercept)
-set_param!(nice, :nice_recycle, :elasticity_slope, meta_slope)
+update_param!(nice, :elasticity_intercept, meta_intercept)
+update_param!(nice, :elasticity_slope, meta_slope)
 include("optimize_recycle.jl")
 include("instantiate_model_in_interface.jl")
 meta_intercept, meta_slope = meta_regression(elasticity_studies[elasticity_studies.Type .== "Direct",:])
-set_param!(nice, :nice_recycle, :elasticity_intercept, meta_intercept)
-set_param!(nice, :nice_recycle, :elasticity_slope, meta_slope)
+update_param!(nice, :elasticity_intercept, meta_intercept)
+update_param!(nice, :elasticity_slope, meta_slope)
 include("optimize_reference.jl")
 
 # CGE and Input-output studies
 results_folder = "CGE_IO_studies"
 include("instantiate_model_in_interface.jl")
 meta_intercept, meta_slope = meta_regression(elasticity_studies[elasticity_studies.Type .!= "Direct",:])
-set_param!(nice, :nice_recycle, :elasticity_intercept, meta_intercept)
-set_param!(nice, :nice_recycle, :elasticity_slope, meta_slope)
+update_param!(nice, :elasticity_intercept, meta_intercept)
+update_param!(nice, :elasticity_slope, meta_slope)
 include("optimize_recycle.jl")
 include("instantiate_model_in_interface.jl")
 meta_intercept, meta_slope = meta_regression(elasticity_studies[elasticity_studies.Type .!= "Direct",:])
-set_param!(nice, :nice_recycle, :elasticity_intercept, meta_intercept)
-set_param!(nice, :nice_recycle, :elasticity_slope, meta_slope)
+update_param!(nice, :elasticity_intercept, meta_intercept)
+update_param!(nice, :elasticity_slope, meta_slope)
 include("optimize_reference.jl")
 
 ##################################################################################

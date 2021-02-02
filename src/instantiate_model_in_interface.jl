@@ -26,18 +26,18 @@ run(bau_model)
 rice_backstop_prices  = bau_model[:emissions, :pbacktime] .* 1000
 
 # Now set user-specified parameter settings.
-set_param!(bau_model, :emissions,    :MIU, zeros(n_steps, 12))
-set_param!(bau_model, :nice_recycle, :damage_elasticity, damage_elasticity)
-set_param!(bau_model, :nice_recycle, :quintile_income_shares, income_distributions)
-set_param!(bau_model, :nice_recycle, :recycle_share, recycle_share)
-set_param!(bau_model, :nice_recycle, :global_carbon_tax, zeros(n_steps))
-set_param!(bau_model, :nice_welfare, :rho, ρ)
-set_param!(bau_model, :nice_welfare, :eta, η)
+update_param!(bau_model, :MIU, zeros(n_steps, 12))
+update_param!(bau_model, :damage_elasticity, damage_elasticity)
+update_param!(bau_model, :quintile_income_shares, income_distributions)
+update_param!(bau_model, :recycle_share, recycle_share)
+update_param!(bau_model, :global_carbon_tax, zeros(n_steps))
+update_param!(bau_model, :rho, ρ)
+update_param!(bau_model, :eta, η)
 
 # If selected, allow elasticities to be calculated for all GDP values (not just those observed in studies).
 if bound_gdp_elasticity == false
-    set_param!(bau_model, :nice_recycle, :min_study_gdp, 1e-10)
-    set_param!(bau_model, :nice_recycle, :max_study_gdp, +Inf)
+    update_param!(bau_model, :min_study_gdp, 1e-10)
+    update_param!(bau_model, :max_study_gdp, +Inf)
 end
 
 run(bau_model)
@@ -46,14 +46,14 @@ run(bau_model)
 nice = create_nice_recycle()
 
 # Set user-specified parameter settings.
-set_param!(nice, :nice_recycle, :damage_elasticity, damage_elasticity)
-set_param!(nice, :nice_recycle, :quintile_income_shares, income_distributions)
-set_param!(nice, :nice_recycle, :recycle_share, recycle_share)
-set_param!(nice, :nice_welfare, :rho, ρ)
-set_param!(nice, :nice_welfare, :eta, η)
+set_param!(nice, :damage_elasticity, damage_elasticity)
+set_param!(nice, :quintile_income_shares, income_distributions)
+set_param!(nice, :recycle_share, recycle_share)
+set_param!(nice, :rho, ρ)
+set_param!(nice, :eta, η)
 
 # If selected, allow elasticities to be calculated for all GDP values (not just those observed in studies).
 if bound_gdp_elasticity == false
-    set_param!(nice, :nice_recycle, :min_study_gdp, 1e-10)
-    set_param!(nice, :nice_recycle, :max_study_gdp, +Inf)
+    set_param!(nice, :min_study_gdp, 1e-10)
+    set_param!(nice, :max_study_gdp, +Inf)
 end

@@ -426,34 +426,36 @@ function create_fair_for_opt()
     set_dimension!(fair, :time, nice_annual_years)
 
     # Set placeholder value for CO₂ emissions.
-    set_param!(fair, :co2_cycle, :E, ones(n_annual_nice))
+    update_param!(fair, :E, ones(n_annual_nice), update_timesteps=true)
 
     #Set initial Cacc perturbation.
-    set_param!(fair, :co2_cycle, :Cacc_0, Cacc_2005)
+    update_param!(fair, :Cacc_0, Cacc_2005)
 
     # Set initial (2004) atmospheric CO₂ concentration.
-    set_param!(fair, :co2_cycle, :CO2_0, CO2_2004)
+  #  set_param!(fair, :CO₂_0, CO2_2004)
+    set_param!(fair, :co2_cycle, :CO₂_0, :co2cycle_2004val, CO2_2004)
+#set_param!(m::Model, comp_name::Symbol, param_name::Symbol, ext_param_name::Symbol, val::Any)
 
     # Set RCP4.5 N₂O concentrations for CO₂ radiative forcing calculations.
-    set_param!(fair, :co2_rf, :N₂O, rcp45_n2o)
+    set_param!(fair, :N₂O, rcp45_n2o)
 
     # Set placeholder for NICE exogenous forcings.
-    set_param!(fair, :total_rf, :F_exogenous, ones(n_annual_nice))
+    update_param!(fair, :F_exogenous, ones(n_annual_nice), update_timesteps=true)
 
     # Set all other radiative forcings to zero.
-    set_param!(fair, :total_rf, :F_volcanic, zeros(n_annual_nice))
-    set_param!(fair, :total_rf, :F_solar, zeros(n_annual_nice))
-    set_param!(fair, :total_rf, :F_CH₄, zeros(n_annual_nice))
-    set_param!(fair, :total_rf, :F_CH₄_H₂O, zeros(n_annual_nice))
-    set_param!(fair, :total_rf, :F_N₂O, zeros(n_annual_nice))
-    set_param!(fair, :total_rf, :F_other_ghg, zeros(n_annual_nice, 28))
-    set_param!(fair, :total_rf, :F_trop_O₃, zeros(n_annual_nice))
-    set_param!(fair, :total_rf, :F_strat_O₃, zeros(n_annual_nice))
-    set_param!(fair, :total_rf, :F_aerosol_direct, zeros(n_annual_nice))
-    set_param!(fair, :total_rf, :F_aerosol_indirect, zeros(n_annual_nice))
-    set_param!(fair, :total_rf, :F_bcsnow, zeros(n_annual_nice))
-    set_param!(fair, :total_rf, :F_landuse, zeros(n_annual_nice))
-    set_param!(fair, :total_rf, :F_contrails, zeros(n_annual_nice))
+    set_param!(fair, :F_volcanic, zeros(n_annual_nice))
+    set_param!(fair, :F_solar, zeros(n_annual_nice))
+    set_param!(fair, :F_CH₄, zeros(n_annual_nice))
+    set_param!(fair, :F_CH₄_H₂O, zeros(n_annual_nice))
+    set_param!(fair, :F_N₂O, zeros(n_annual_nice))
+    set_param!(fair, :F_other_ghg, zeros(n_annual_nice, 28))
+    set_param!(fair, :F_trop_O₃, zeros(n_annual_nice))
+    set_param!(fair, :F_strat_O₃, zeros(n_annual_nice))
+    set_param!(fair, :F_aerosol_direct, zeros(n_annual_nice))
+    set_param!(fair, :F_aerosol_indirect, zeros(n_annual_nice))
+    set_param!(fair, :F_bcsnow, zeros(n_annual_nice))
+    set_param!(fair, :F_landuse, zeros(n_annual_nice))
+    set_param!(fair, :F_contrails, zeros(n_annual_nice))
 
     # Return modified version of FAIR.
     return fair
@@ -501,7 +503,7 @@ function construct_fair_recycle_objective(nice::Model, n_loops::Int; revenue_rec
     fair = create_fair_for_opt()
 
     # Set FAIR exogenous forcing to annualized NICE exogenous forcing scenario.
-    set_param!(fair, :total_rf, :F_exogenous, annual_nice_exog_rf)
+    update_param!(fair, :F_exogenous, annual_nice_exog_rf)
 
     # Find number of timesteps across NICE model time horizon.
     n_nice_decadal = length(dim_keys(nice, :time))
@@ -525,19 +527,18 @@ function construct_fair_recycle_objective(nice::Model, n_loops::Int; revenue_rec
                 optimal_CO₂_tax[:], optimal_CO₂_mitigation[:,:] = mu_from_tax(opt_tax, nice_backstop_prices)
 
                 # Update CO₂ mitigation rate and global CO₂ tax in NICE.
-                set_param!(nice, :emissions, :MIU, optimal_CO₂_mitigation)
-                set_param!(nice, :nice_recycle, :global_carbon_tax, optimal_CO₂_tax)
+                update_param!(nice, :MIU, optimal_CO₂_mitigation)
+                update_param!(nice, :global_carbon_tax, optimal_CO₂_tax)
                 run(nice)
 
                 for loops = 1:n_loops
 
                     # Run FAIR with annualized NICE CO₂ emissions to calculate temperature.
-                    set_param!(fair, :co2_cycle, :E, interpolate_to_annual(nice[:emissions, :E], 10))
+                    update_param!(fair, :E, interpolate_to_annual(nice[:emissions, :E], 10))
                     run(fair)
 
                     # Set FAIR temperature projections in NICE.
-                    set_param!(nice, :sealevelrise, :TATM, fair[:temperature, :T][nice_decadal_indices])
-                    set_param!(nice, :damages, :TATM, fair[:temperature, :T][nice_decadal_indices])
+                    set_param!(nice, :TATM, fair[:temperature, :T][nice_decadal_indices])
                     run(nice)
                 end
 
@@ -555,19 +556,18 @@ function construct_fair_recycle_objective(nice::Model, n_loops::Int; revenue_rec
 
                 # Update CO₂ mitigation rate in NICE.
                 # Set tax in recycling component to $0 yielding no tax revenue (i.e. switch off revenue recycling).
-                set_param!(nice, :emissions, :MIU, optimal_CO₂_mitigation)
-                set_param!(nice, :nice_recycle, :global_carbon_tax, zeros(n_nice_decadal))
+                update_param!(nice, :MIU, optimal_CO₂_mitigation)
+                update_param!(nice, :global_carbon_tax, zeros(n_nice_decadal))
                 run(nice)
 
                 for loops = 1:n_loops
 
                     # Run FAIR with annualized NICE CO₂ emissions to calculate temperature.
-                    set_param!(fair, :co2_cycle, :E, interpolate_to_annual(nice[:emissions, :E], 10))
+                    update_param!(fair, :E, interpolate_to_annual(nice[:emissions, :E], 10))
                     run(fair)
 
                     # Set FAIR temperature projections in NICE.
-                    set_param!(nice, :sealevelrise, :TATM, fair[:temperature, :T][nice_decadal_indices])
-                    set_param!(nice, :damages, :TATM, fair[:temperature, :T][nice_decadal_indices])
+                    set_param!(nice, :TATM, fair[:temperature, :T][nice_decadal_indices])
                     run(nice)
                 end
 
