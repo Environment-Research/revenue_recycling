@@ -72,8 +72,8 @@ println("Convergence result = ", reference_convergence)
 reference_full_opt_tax, reference_opt_regional_mitigation = mu_from_tax(reference_opt_tax, rice_backstop_prices)
 
 # Run model under optimal policy.
-set_param!(nice, :emissions, :MIU, reference_opt_regional_mitigation)
-set_param!(nice, :nice_recycle, :global_carbon_tax, zeros(n_steps))
+set_param!(nice, :MIU, reference_opt_regional_mitigation)
+set_param!(nice, :global_carbon_tax, zeros(n_steps))
 run(nice)
 
 # Save results.

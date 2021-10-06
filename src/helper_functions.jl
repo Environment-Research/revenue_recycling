@@ -138,10 +138,17 @@ end
 #
 # Function Arguments:
 #
-#       Data = Independent data (x-terms) in regression coming from multiple studies.
+#       Data       = Independent data (x-terms) in regression coming from multiple studies.
+#       slope_type = The type of analysis to carry out. Options are :central, :steeper, :flatter, :percentile
+#                       :central    = returns central regression result
+#                       :steeper    = returns results for the steepest slope in the 95% confidence interval range
+#                       :flatter    = returns results for the shallowest slope in the 95% confidence interval range
+#                       :percentile = returns results for a horizontal line corresponding to a given elasticity percentile
+#       percentile = Calculate this percentile for the elasticity values (defaults to 0.9 for the 90th percentile).
+#       z_val      = z-value for a given confidence interval (defaults to 1.96 for 95% interval)
 #--------------------------------------------------------------------------------------------------------------------
 
-function meta_regression(Data)
+function meta_regression(Data; slope_type::Symbol=:central, percentile::Float64=0.90, z_val::Float64=1.96)
 
     # Sort study data by region and country names.
     sort!(Data, [:Region, :CountryA3])
@@ -166,14 +173,70 @@ function meta_regression(Data)
         elasticities[i] = B[2]
     end
 
+    # Calculate log of per capita GDP.
+    Data[:log_pcGDP] = log.(Data[:pcGDP])
+
     # Using these elasticities, run meta-regression (elasticity vs. ln gdp per capita).
-    meta_B, meta_V  = regress(elasticities, log.(Data.pcGDP))
+    meta_B, meta_V  = regress(elasticities, Data[:log_pcGDP])
     meta_intercept  = meta_B[1]
     meta_slope      = meta_B[2]
 
-    return meta_intercept, meta_slope
-end
+    # ------------------------------------------------------------------------------------------------------
+    # Calculate flattest and steepest slopes based on 95% confidence interval range.
+    # ------------------------------------------------------------------------------------------------------
 
+    # First, need 95% CI around regression lines (requires squared errors & "x_spread" -> (x - mean(x))²)
+
+    # Predicted elasticity values.
+    elasticity_hat = meta_intercept .+ meta_slope .* Data[:log_pcGDP]
+
+    # Calculate squared errors of elasticities and their mean.
+    sq_err = (elasticity_hat .- elasticities) .^2
+    mse = mean(sq_err)
+
+    # Calculate squared differences between per capita GDP values and their mean.
+    x_spread = (Data[:log_pcGDP] .- mean(Data[:log_pcGDP])).^2
+
+    # Calculate lower and upper confidence intervals.
+    lower_ci = elasticity_hat .- z_val * sqrt.(mse*(1/n .+ x_spread ./ sum(x_spread)))
+    upper_ci = elasticity_hat .+ z_val * sqrt.(mse*(1/n .+ x_spread ./ sum(x_spread)))
+
+    # Second, For the steepest line connect maximum point of upper CI and minimum of lower CI.
+
+    # Calculate steeper slope and intercept.
+    steeper_slope     = (maximum(upper_ci) - minimum(lower_ci)) / (minimum(Data[:log_pcGDP]) - maximum(Data[:log_pcGDP]))
+    steeper_intercept = maximum(upper_ci) - steeper_slope * minimum(Data[:log_pcGDP])
+
+    # Also calculate a shallower slope and intercept.
+    flatter_slope     = (minimum(upper_ci) - maximum(lower_ci)) / (maximum(Data[:log_pcGDP]) - minimum(Data[:log_pcGDP]))
+    flatter_intercept = minimum(upper_ci) - flatter_slope * maximum(Data[:log_pcGDP])
+
+    # ------------------------------------------------------------------------------------------------------
+    # Calculate horizontal lines for a given elasticity percentile.
+    # ------------------------------------------------------------------------------------------------------
+
+    # Horizontal line, so slope = 0.
+    percentile_slope = 0.0
+
+    # Calculate intercept for a given percentile.
+    percentile_intercept = quantile(elasticities, percentile)
+
+    # ------------------------------------------------------------------------------------------------------
+    # Return slope and intercept depending on user-specification for analysis type.
+    # ------------------------------------------------------------------------------------------------------
+
+    if slope_type == :central
+        return meta_intercept, meta_slope
+    elseif slope_type == :steeper
+        return steeper_intercept, steeper_slope
+    elseif slope_type == :flatter
+        return flatter_intercept, flatter_slope
+    elseif slope_type == :percentile
+        return percentile_intercept, percentile_slope
+    else
+        println("Incorrect regression analysis type selected. Options are :central, :steeper, :flatter, :percentile")
+    end
+end
 
 
 #######################################################################################################################
@@ -240,8 +303,8 @@ function construct_nice_recycle_objective(m::Model; revenue_recycling::Bool=true
                 # Calculate mitigation rate resulting from global carbon tax.
                 optimal_CO₂_tax[:], optimal_CO₂_mitigation[:,:] = mu_from_tax(opt_tax, rice_backstop_prices)
                 # Update CO₂ mitigation rate and global CO₂ tax in NICE.
-                set_param!(m, :emissions, :MIU, optimal_CO₂_mitigation)
-                set_param!(m, :nice_recycle, :global_carbon_tax, optimal_CO₂_tax)
+                update_param!(m, :MIU, optimal_CO₂_mitigation)
+                update_param!(m, :global_carbon_tax, optimal_CO₂_tax)
                 run(m)
                 # Return total welfare.
                 return m[:nice_welfare, :welfare]
@@ -255,8 +318,8 @@ function construct_nice_recycle_objective(m::Model; revenue_recycling::Bool=true
                 optimal_CO₂_tax[:], optimal_CO₂_mitigation[:,:] = mu_from_tax(opt_tax, rice_backstop_prices)
                 # Update CO₂ mitigation rate in NICE.
                 # Set tax in recycling component to $0 yielding no tax revenue (i.e. switch off revenue recycling).
-                set_param!(m, :emissions, :MIU, optimal_CO₂_mitigation)
-                set_param!(m, :nice_recycle, :global_carbon_tax, zeros(n_steps))
+                update_param!(m, :MIU, optimal_CO₂_mitigation)
+                update_param!(m, :global_carbon_tax, zeros(n_steps))
                 run(m)
                 # Return total welfare.
                 return m[:nice_welfare, :welfare]
@@ -363,34 +426,36 @@ function create_fair_for_opt()
     set_dimension!(fair, :time, nice_annual_years)
 
     # Set placeholder value for CO₂ emissions.
-    set_param!(fair, :co2_cycle, :E, ones(n_annual_nice))
+    update_param!(fair, :E, ones(n_annual_nice), update_timesteps=true)
 
     #Set initial Cacc perturbation.
-    set_param!(fair, :co2_cycle, :Cacc_0, Cacc_2005)
+    update_param!(fair, :Cacc_0, Cacc_2005)
 
     # Set initial (2004) atmospheric CO₂ concentration.
-    set_param!(fair, :co2_cycle, :CO2_0, CO2_2004)
+  #  set_param!(fair, :CO₂_0, CO2_2004)
+    set_param!(fair, :co2_cycle, :CO₂_0, :co2cycle_2004val, CO2_2004)
+#set_param!(m::Model, comp_name::Symbol, param_name::Symbol, ext_param_name::Symbol, val::Any)
 
     # Set RCP4.5 N₂O concentrations for CO₂ radiative forcing calculations.
-    set_param!(fair, :co2_rf, :N₂O, rcp45_n2o)
+    set_param!(fair, :N₂O, rcp45_n2o)
 
     # Set placeholder for NICE exogenous forcings.
-    set_param!(fair, :total_rf, :F_exogenous, ones(n_annual_nice))
+    update_param!(fair, :F_exogenous, ones(n_annual_nice), update_timesteps=true)
 
     # Set all other radiative forcings to zero.
-    set_param!(fair, :total_rf, :F_volcanic, zeros(n_annual_nice))
-    set_param!(fair, :total_rf, :F_solar, zeros(n_annual_nice))
-    set_param!(fair, :total_rf, :F_CH₄, zeros(n_annual_nice))
-    set_param!(fair, :total_rf, :F_CH₄_H₂O, zeros(n_annual_nice))
-    set_param!(fair, :total_rf, :F_N₂O, zeros(n_annual_nice))
-    set_param!(fair, :total_rf, :F_other_ghg, zeros(n_annual_nice, 28))
-    set_param!(fair, :total_rf, :F_trop_O₃, zeros(n_annual_nice))
-    set_param!(fair, :total_rf, :F_strat_O₃, zeros(n_annual_nice))
-    set_param!(fair, :total_rf, :F_aerosol_direct, zeros(n_annual_nice))
-    set_param!(fair, :total_rf, :F_aerosol_indirect, zeros(n_annual_nice))
-    set_param!(fair, :total_rf, :F_bcsnow, zeros(n_annual_nice))
-    set_param!(fair, :total_rf, :F_landuse, zeros(n_annual_nice))
-    set_param!(fair, :total_rf, :F_contrails, zeros(n_annual_nice))
+    set_param!(fair, :F_volcanic, zeros(n_annual_nice))
+    set_param!(fair, :F_solar, zeros(n_annual_nice))
+    set_param!(fair, :F_CH₄, zeros(n_annual_nice))
+    set_param!(fair, :F_CH₄_H₂O, zeros(n_annual_nice))
+    set_param!(fair, :F_N₂O, zeros(n_annual_nice))
+    set_param!(fair, :F_other_ghg, zeros(n_annual_nice, 28))
+    set_param!(fair, :F_trop_O₃, zeros(n_annual_nice))
+    set_param!(fair, :F_strat_O₃, zeros(n_annual_nice))
+    set_param!(fair, :F_aerosol_direct, zeros(n_annual_nice))
+    set_param!(fair, :F_aerosol_indirect, zeros(n_annual_nice))
+    set_param!(fair, :F_bcsnow, zeros(n_annual_nice))
+    set_param!(fair, :F_landuse, zeros(n_annual_nice))
+    set_param!(fair, :F_contrails, zeros(n_annual_nice))
 
     # Return modified version of FAIR.
     return fair
@@ -438,7 +503,7 @@ function construct_fair_recycle_objective(nice::Model, n_loops::Int; revenue_rec
     fair = create_fair_for_opt()
 
     # Set FAIR exogenous forcing to annualized NICE exogenous forcing scenario.
-    set_param!(fair, :total_rf, :F_exogenous, annual_nice_exog_rf)
+    update_param!(fair, :F_exogenous, annual_nice_exog_rf)
 
     # Find number of timesteps across NICE model time horizon.
     n_nice_decadal = length(dim_keys(nice, :time))
@@ -462,19 +527,18 @@ function construct_fair_recycle_objective(nice::Model, n_loops::Int; revenue_rec
                 optimal_CO₂_tax[:], optimal_CO₂_mitigation[:,:] = mu_from_tax(opt_tax, nice_backstop_prices)
 
                 # Update CO₂ mitigation rate and global CO₂ tax in NICE.
-                set_param!(nice, :emissions, :MIU, optimal_CO₂_mitigation)
-                set_param!(nice, :nice_recycle, :global_carbon_tax, optimal_CO₂_tax)
+                update_param!(nice, :MIU, optimal_CO₂_mitigation)
+                update_param!(nice, :global_carbon_tax, optimal_CO₂_tax)
                 run(nice)
 
                 for loops = 1:n_loops
 
                     # Run FAIR with annualized NICE CO₂ emissions to calculate temperature.
-                    set_param!(fair, :co2_cycle, :E, interpolate_to_annual(nice[:emissions, :E], 10))
+                    update_param!(fair, :E, interpolate_to_annual(nice[:emissions, :E], 10))
                     run(fair)
 
                     # Set FAIR temperature projections in NICE.
-                    set_param!(nice, :sealevelrise, :TATM, fair[:temperature, :T][nice_decadal_indices])
-                    set_param!(nice, :damages, :TATM, fair[:temperature, :T][nice_decadal_indices])
+                    set_param!(nice, :TATM, fair[:temperature, :T][nice_decadal_indices])
                     run(nice)
                 end
 
@@ -492,19 +556,18 @@ function construct_fair_recycle_objective(nice::Model, n_loops::Int; revenue_rec
 
                 # Update CO₂ mitigation rate in NICE.
                 # Set tax in recycling component to $0 yielding no tax revenue (i.e. switch off revenue recycling).
-                set_param!(nice, :emissions, :MIU, optimal_CO₂_mitigation)
-                set_param!(nice, :nice_recycle, :global_carbon_tax, zeros(n_nice_decadal))
+                update_param!(nice, :MIU, optimal_CO₂_mitigation)
+                update_param!(nice, :global_carbon_tax, zeros(n_nice_decadal))
                 run(nice)
 
                 for loops = 1:n_loops
 
                     # Run FAIR with annualized NICE CO₂ emissions to calculate temperature.
-                    set_param!(fair, :co2_cycle, :E, interpolate_to_annual(nice[:emissions, :E], 10))
+                    update_param!(fair, :E, interpolate_to_annual(nice[:emissions, :E], 10))
                     run(fair)
 
                     # Set FAIR temperature projections in NICE.
-                    set_param!(nice, :sealevelrise, :TATM, fair[:temperature, :T][nice_decadal_indices])
-                    set_param!(nice, :damages, :TATM, fair[:temperature, :T][nice_decadal_indices])
+                    set_param!(nice, :TATM, fair[:temperature, :T][nice_decadal_indices])
                     run(nice)
                 end
 

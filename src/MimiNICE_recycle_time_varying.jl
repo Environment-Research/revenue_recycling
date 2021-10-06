@@ -1,5 +1,5 @@
-# Load required packages.
-using CSVFiles, DataFrames, Mimi, MimiRICE2010, MimiNICE
+ # Load required packages.
+using CSVFiles, DataFrames, Mimi, MimiRICE2010, MimiNICE, Statistics
 
 # Load helper functions and revenue recycling components being added to the NICE model.
 include("helper_functions.jl")
@@ -27,7 +27,7 @@ consumption_distributions = get_quintile_income_shares(consumption_distribution_
 # -------------------------------------------------
 # -------------------------------------------------
 
-function create_nice_recycle()
+function create_nice_recycle(;slope_type::Symbol=:central, percentile::Float64=0.90)
 
     # Initialize an instance of NICE to build in revenue recycling.
     nice_rr = MimiNICE.create_nice()
@@ -43,13 +43,13 @@ function create_nice_recycle()
     #-------------------------------------#
 
     # First, perform a meta-regression based on study results to calculate elasticity vs. ln gdp per capita relationship.
-    meta_intercept, meta_slope = meta_regression(elasticity_studies)
+    meta_intercept, meta_slope = meta_regression(elasticity_studies, slope_type=slope_type, percentile=percentile)
 
-    # Note, revenue recycling model now uses quintile consumption values calculated in nice_recycle component (not nice_neteconomy).
-    set_param!(nice_rr, :grosseconomy, :l, un_population_data)
+    # Update parameters common to multiple components or that already have external Mimi parameters defined.
+    update_param!(nice_rr, :l, un_population_data)
+    update_param!(nice_rr, :quintile_pop, un_population_data ./ 5)
 
-    set_param!(nice_rr, :nice_neteconomy, :l, un_population_data)
-
+    # Set values for additional NICE and recycling parameters.
     set_param!(nice_rr, :nice_recycle, :min_study_gdp, minimum(elasticity_studies.pcGDP))
     set_param!(nice_rr, :nice_recycle, :max_study_gdp, maximum(elasticity_studies.pcGDP))
     set_param!(nice_rr, :nice_recycle, :elasticity_intercept, meta_intercept)
@@ -59,8 +59,8 @@ function create_nice_recycle()
     set_param!(nice_rr, :nice_recycle, :damage_elasticity, 1.0)
     set_param!(nice_rr, :nice_recycle, :recycle_share, ones(12,5).*0.2)
     set_param!(nice_rr, :nice_recycle, :global_carbon_tax, zeros(n_steps))
-
-    set_param!(nice_rr, :nice_welfare, :quintile_pop, un_population_data ./ 5)
+    set_param!(nice_rr, :nice_recycle, :lost_revenue_share, 0.0)
+    set_param!(nice_rr, :nice_recycle, :global_recycle_share, zeros(12))
 
     # Create parameter connections (:component => :parameter).
     connect_param!(nice_rr, :nice_recycle => :industrial_emissions, :emissions       => :EIND)
