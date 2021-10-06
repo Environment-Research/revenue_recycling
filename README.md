@@ -1,18 +1,18 @@
-## Code for NICE + Revenue Recycling
+## Replication Code for Budolfson et al. (2021), "*Climate Action with Revenue Recycling Has Benefits for Poverty, Inequality, and Wellbeing*."
 
 ### How To Install Required Packages
 
-This code runs on Julia v1.2. Install these packages if you don't have them. To enter the package manager, hit the `]` key. To exit it back to Julia, hit the `backspace` key. Once in the package manager, run the following code:
+This code runs on [Julia v1.6](https://julialang.org/downloads/) and uses the [Mimi](https://www.mimiframework.org/) framework for building integrated assessment models. To install the required packages, first enter the Julia package manager using the `]` key. Once in the package manager, run the following code:
 
 ```julia
 add CSVFiles  
 add DataFrames  
-add ExcelReaders
 add Interpolations
 add Mimi  
+add NLopt
 ```
 
-Run the following lines of code to install the MimiRICE model. This code will create a connection to the online Mimi model library and then install Mimi-RICE2010. An in-depth description of these steps can be found at https://github.com/anthofflab/MimiRICE2010.jl
+Run the following lines of code to install the MimiRICE model. This code will create a connection to the online Mimi model library and then install Mimi-RICE2010. An in-depth description of these steps can be found at the [MimiRICE2010 GitHub Repository](https://github.com/anthofflab/MimiRICE2010.jl).
 
 Still in the Julia pacakge manager, run the following lines (note, these only need to be run once per computer):
 
@@ -59,8 +59,8 @@ explore(m)
 
 ### Run Paper Replication Code
 
+To reproduce the results from "*Climate Action with Revenue Recycling Has Benefits for Poverty, Inequality, and Wellbeing*," run:
 ```julia
-# To reproduce the results from "Progressive Revenue Recycling Can Alleviate Poverty, Reduce Inequality, and Improve Wellbeing While Avoiding Dangerous Climate Change," run the following file:
-
-include("src/user_interface_time_varying_for_paper_submission.jl")
+include("src/paper_replication_runs.jl")
 ```
+The replication output will be saved in the `results` folder.
