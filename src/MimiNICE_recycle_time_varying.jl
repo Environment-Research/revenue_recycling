@@ -13,7 +13,7 @@ include(joinpath("revenue_recycling_components", "nice_revenue_recycle_component
 elasticity_studies = DataFrame(load(joinpath(@__DIR__, "..", "data", "elasticity_study_data.csv")))
 
 # Load updated UN population projections and convert units to millions of people.
-un_population_data = convert(Matrix, DataFrame(load(joinpath(@__DIR__, "..", "data", "UN_medium_population_scenario.csv"), skiplines_begin=3))[:, 3:end]) ./ 1000
+un_population_data = Matrix(DataFrame(load(joinpath(@__DIR__, "..", "data", "UN_medium_population_scenario.csv"), skiplines_begin=3))[:, 3:end]) ./ 1000
 
 # Load quintile income distribution data that remains fixed over time (these shares are an update from the original NICE income distributions).
 consumption_distribution_raw = DataFrame(load(joinpath(@__DIR__, "..", "data", "constant_quintile_distributions_consumption.csv")))
