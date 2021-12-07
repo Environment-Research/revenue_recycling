@@ -174,10 +174,10 @@ function meta_regression(Data; slope_type::Symbol=:central, percentile::Float64=
     end
 
     # Calculate log of per capita GDP.
-    Data[:log_pcGDP] = log.(Data[:pcGDP])
+    Data.log_pcGDP = log.(Data[!,:pcGDP])
 
     # Using these elasticities, run meta-regression (elasticity vs. ln gdp per capita).
-    meta_B, meta_V  = regress(elasticities, Data[:log_pcGDP])
+    meta_B, meta_V  = regress(elasticities, Data[!,:log_pcGDP])
     meta_intercept  = meta_B[1]
     meta_slope      = meta_B[2]
 
@@ -188,14 +188,14 @@ function meta_regression(Data; slope_type::Symbol=:central, percentile::Float64=
     # First, need 95% CI around regression lines (requires squared errors & "x_spread" -> (x - mean(x))²)
 
     # Predicted elasticity values.
-    elasticity_hat = meta_intercept .+ meta_slope .* Data[:log_pcGDP]
+    elasticity_hat = meta_intercept .+ meta_slope .* Data[!,:log_pcGDP]
 
     # Calculate squared errors of elasticities and their mean.
     sq_err = (elasticity_hat .- elasticities) .^2
     mse = mean(sq_err)
 
     # Calculate squared differences between per capita GDP values and their mean.
-    x_spread = (Data[:log_pcGDP] .- mean(Data[:log_pcGDP])).^2
+    x_spread = (Data[!,:log_pcGDP] .- mean(Data[!,:log_pcGDP])).^2
 
     # Calculate lower and upper confidence intervals.
     lower_ci = elasticity_hat .- z_val * sqrt.(mse*(1/n .+ x_spread ./ sum(x_spread)))
@@ -204,12 +204,12 @@ function meta_regression(Data; slope_type::Symbol=:central, percentile::Float64=
     # Second, For the steepest line connect maximum point of upper CI and minimum of lower CI.
 
     # Calculate steeper slope and intercept.
-    steeper_slope     = (maximum(upper_ci) - minimum(lower_ci)) / (minimum(Data[:log_pcGDP]) - maximum(Data[:log_pcGDP]))
-    steeper_intercept = maximum(upper_ci) - steeper_slope * minimum(Data[:log_pcGDP])
+    steeper_slope     = (maximum(upper_ci) - minimum(lower_ci)) / (minimum(Data[!,:log_pcGDP]) - maximum(Data[!,:log_pcGDP]))
+    steeper_intercept = maximum(upper_ci) - steeper_slope * minimum(Data[!,:log_pcGDP])
 
     # Also calculate a shallower slope and intercept.
-    flatter_slope     = (minimum(upper_ci) - maximum(lower_ci)) / (maximum(Data[:log_pcGDP]) - minimum(Data[:log_pcGDP]))
-    flatter_intercept = minimum(upper_ci) - flatter_slope * maximum(Data[:log_pcGDP])
+    flatter_slope     = (minimum(upper_ci) - maximum(lower_ci)) / (maximum(Data[!,:log_pcGDP]) - minimum(Data[!,:log_pcGDP]))
+    flatter_intercept = minimum(upper_ci) - flatter_slope * maximum(Data[!,:log_pcGDP])
 
     # ------------------------------------------------------------------------------------------------------
     # Calculate horizontal lines for a given elasticity percentile.
@@ -623,7 +623,7 @@ function save_nice_recycle_results(m_policy::Model, m_bau::Model, opt_tax::Array
     end
 
     # Save Global Output.
-    save(joinpath(global_path, "global_co2_mitigation.csv"), DataFrame(get_global_mitigation(m_policy, m_bau)))
+    save(joinpath(global_path, "global_co2_mitigation.csv"), DataFrame(get_global_mitigation(m_policy, m_bau), :auto))
     save(joinpath(global_path, "temperature.csv"), DataFrame(temperature=m_policy[:climatedynamics, :TATM]))
     save(joinpath(global_path, "rough_carbon_tax_global_algorithm.csv"), DataFrame(global_algorithm_tax=opt_tax_global_algorithm))
     save(joinpath(global_path, "carbon_tax.csv"), DataFrame(tax=opt_tax))
@@ -631,37 +631,37 @@ function save_nice_recycle_results(m_policy::Model, m_bau::Model, opt_tax::Array
     save(joinpath(global_path, "co2_concentration_ppm.csv"), DataFrame(CO2=m_policy[:co2cycle, :MAT] ./ 2.13))
 
     # Save Regional Output.
-    save(joinpath(regional_path, "gross_output.csv"), DataFrame(m_policy[:grosseconomy, :YGROSS]))
-    save(joinpath(regional_path, "nice_net_output.csv"), DataFrame(m_policy[:nice_neteconomy, :Y]))
-    save(joinpath(regional_path, "consumption.csv"), DataFrame(m_policy[:nice_neteconomy, :C]))
-    save(joinpath(regional_path, "population.csv"), DataFrame(m_policy[:nice_neteconomy, :l]))
-    save(joinpath(regional_path, "industrial_co2_emissions.csv"), DataFrame(m_policy[:emissions, :EIND]))
-    save(joinpath(regional_path, "damage_cost_share.csv"), DataFrame(m_policy[:nice_neteconomy, :DAMFRAC]))
-    save(joinpath(regional_path, "abatement_cost_share.csv"), DataFrame(m_policy[:nice_neteconomy, :ABATEFRAC]))
-    save(joinpath(regional_path, "regional_co2_mitigation.csv"), DataFrame(m_policy[:emissions, :MIU]))
-    save(joinpath(regional_path, "co2_tax_revenue.csv"), DataFrame(m_policy[:nice_recycle, :tax_revenue]))
-    save(joinpath(regional_path, "co2_income_elasticity.csv"), DataFrame(m_policy[:nice_recycle, :CO₂_income_elasticity]))
+    save(joinpath(regional_path, "gross_output.csv"), DataFrame(m_policy[:grosseconomy, :YGROSS], :auto))
+    save(joinpath(regional_path, "nice_net_output.csv"), DataFrame(m_policy[:nice_neteconomy, :Y], :auto))
+    save(joinpath(regional_path, "consumption.csv"), DataFrame(m_policy[:nice_neteconomy, :C], :auto))
+    save(joinpath(regional_path, "population.csv"), DataFrame(m_policy[:nice_neteconomy, :l], :auto))
+    save(joinpath(regional_path, "industrial_co2_emissions.csv"), DataFrame(m_policy[:emissions, :EIND], :auto))
+    save(joinpath(regional_path, "damage_cost_share.csv"), DataFrame(m_policy[:nice_neteconomy, :DAMFRAC], :auto))
+    save(joinpath(regional_path, "abatement_cost_share.csv"), DataFrame(m_policy[:nice_neteconomy, :ABATEFRAC], :auto))
+    save(joinpath(regional_path, "regional_co2_mitigation.csv"), DataFrame(m_policy[:emissions, :MIU], :auto))
+    save(joinpath(regional_path, "co2_tax_revenue.csv"), DataFrame(m_policy[:nice_recycle, :tax_revenue], :auto))
+    save(joinpath(regional_path, "co2_income_elasticity.csv"), DataFrame(m_policy[:nice_recycle, :CO₂_income_elasticity], :auto))
 
     # Save Quintile Output.
-    save(joinpath(quintile_path, "co2_tax_distribution_Q1.csv"), DataFrame(m_policy[:nice_recycle, :carbon_tax_dist][:,:,1]))
-    save(joinpath(quintile_path, "co2_tax_distribution_Q2.csv"), DataFrame(m_policy[:nice_recycle, :carbon_tax_dist][:,:,2]))
-    save(joinpath(quintile_path, "co2_tax_distribution_Q3.csv"), DataFrame(m_policy[:nice_recycle, :carbon_tax_dist][:,:,3]))
-    save(joinpath(quintile_path, "co2_tax_distribution_Q4.csv"), DataFrame(m_policy[:nice_recycle, :carbon_tax_dist][:,:,4]))
-    save(joinpath(quintile_path, "co2_tax_distribution_Q5.csv"), DataFrame(m_policy[:nice_recycle, :carbon_tax_dist][:,:,5]))
-    save(joinpath(quintile_path, "base_pc_consumption_Q1.csv"), DataFrame(m_policy[:nice_recycle, :qc_base][:,:,1]))
-    save(joinpath(quintile_path, "base_pc_consumption_Q2.csv"), DataFrame(m_policy[:nice_recycle, :qc_base][:,:,2]))
-    save(joinpath(quintile_path, "base_pc_consumption_Q3.csv"), DataFrame(m_policy[:nice_recycle, :qc_base][:,:,3]))
-    save(joinpath(quintile_path, "base_pc_consumption_Q4.csv"), DataFrame(m_policy[:nice_recycle, :qc_base][:,:,4]))
-    save(joinpath(quintile_path, "base_pc_consumption_Q5.csv"), DataFrame(m_policy[:nice_recycle, :qc_base][:,:,5]))
-    save(joinpath(quintile_path, "post_damage_abatement_pc_consumption_Q1.csv"), DataFrame(m_policy[:nice_recycle, :qc_post_damage_abatement][:,:,1]))
-    save(joinpath(quintile_path, "post_damage_abatement_pc_consumption_Q2.csv"), DataFrame(m_policy[:nice_recycle, :qc_post_damage_abatement][:,:,2]))
-    save(joinpath(quintile_path, "post_damage_abatement_pc_consumption_Q3.csv"), DataFrame(m_policy[:nice_recycle, :qc_post_damage_abatement][:,:,3]))
-    save(joinpath(quintile_path, "post_damage_abatement_pc_consumption_Q4.csv"), DataFrame(m_policy[:nice_recycle, :qc_post_damage_abatement][:,:,4]))
-    save(joinpath(quintile_path, "post_damage_abatement_pc_consumption_Q5.csv"), DataFrame(m_policy[:nice_recycle, :qc_post_damage_abatement][:,:,5]))
-    save(joinpath(quintile_path, "post_recycle_pc_consumption_Q1.csv"), DataFrame(m_policy[:nice_recycle, :qc_post_recycle][:,:,1]))
-    save(joinpath(quintile_path, "post_recycle_pc_consumption_Q2.csv"), DataFrame(m_policy[:nice_recycle, :qc_post_recycle][:,:,2]))
-    save(joinpath(quintile_path, "post_recycle_pc_consumption_Q3.csv"), DataFrame(m_policy[:nice_recycle, :qc_post_recycle][:,:,3]))
-    save(joinpath(quintile_path, "post_recycle_pc_consumption_Q4.csv"), DataFrame(m_policy[:nice_recycle, :qc_post_recycle][:,:,4]))
-    save(joinpath(quintile_path, "post_recycle_pc_consumption_Q5.csv"), DataFrame(m_policy[:nice_recycle, :qc_post_recycle][:,:,5]))
+    save(joinpath(quintile_path, "co2_tax_distribution_Q1.csv"), DataFrame(m_policy[:nice_recycle, :carbon_tax_dist][:,:,1], :auto))
+    save(joinpath(quintile_path, "co2_tax_distribution_Q2.csv"), DataFrame(m_policy[:nice_recycle, :carbon_tax_dist][:,:,2], :auto))
+    save(joinpath(quintile_path, "co2_tax_distribution_Q3.csv"), DataFrame(m_policy[:nice_recycle, :carbon_tax_dist][:,:,3], :auto))
+    save(joinpath(quintile_path, "co2_tax_distribution_Q4.csv"), DataFrame(m_policy[:nice_recycle, :carbon_tax_dist][:,:,4], :auto))
+    save(joinpath(quintile_path, "co2_tax_distribution_Q5.csv"), DataFrame(m_policy[:nice_recycle, :carbon_tax_dist][:,:,5], :auto))
+    save(joinpath(quintile_path, "base_pc_consumption_Q1.csv"), DataFrame(m_policy[:nice_recycle, :qc_base][:,:,1], :auto))
+    save(joinpath(quintile_path, "base_pc_consumption_Q2.csv"), DataFrame(m_policy[:nice_recycle, :qc_base][:,:,2], :auto))
+    save(joinpath(quintile_path, "base_pc_consumption_Q3.csv"), DataFrame(m_policy[:nice_recycle, :qc_base][:,:,3], :auto))
+    save(joinpath(quintile_path, "base_pc_consumption_Q4.csv"), DataFrame(m_policy[:nice_recycle, :qc_base][:,:,4], :auto))
+    save(joinpath(quintile_path, "base_pc_consumption_Q5.csv"), DataFrame(m_policy[:nice_recycle, :qc_base][:,:,5], :auto))
+    save(joinpath(quintile_path, "post_damage_abatement_pc_consumption_Q1.csv"), DataFrame(m_policy[:nice_recycle, :qc_post_damage_abatement][:,:,1], :auto))
+    save(joinpath(quintile_path, "post_damage_abatement_pc_consumption_Q2.csv"), DataFrame(m_policy[:nice_recycle, :qc_post_damage_abatement][:,:,2], :auto))
+    save(joinpath(quintile_path, "post_damage_abatement_pc_consumption_Q3.csv"), DataFrame(m_policy[:nice_recycle, :qc_post_damage_abatement][:,:,3], :auto))
+    save(joinpath(quintile_path, "post_damage_abatement_pc_consumption_Q4.csv"), DataFrame(m_policy[:nice_recycle, :qc_post_damage_abatement][:,:,4], :auto))
+    save(joinpath(quintile_path, "post_damage_abatement_pc_consumption_Q5.csv"), DataFrame(m_policy[:nice_recycle, :qc_post_damage_abatement][:,:,5], :auto))
+    save(joinpath(quintile_path, "post_recycle_pc_consumption_Q1.csv"), DataFrame(m_policy[:nice_recycle, :qc_post_recycle][:,:,1], :auto))
+    save(joinpath(quintile_path, "post_recycle_pc_consumption_Q2.csv"), DataFrame(m_policy[:nice_recycle, :qc_post_recycle][:,:,2], :auto))
+    save(joinpath(quintile_path, "post_recycle_pc_consumption_Q3.csv"), DataFrame(m_policy[:nice_recycle, :qc_post_recycle][:,:,3], :auto))
+    save(joinpath(quintile_path, "post_recycle_pc_consumption_Q4.csv"), DataFrame(m_policy[:nice_recycle, :qc_post_recycle][:,:,4], :auto))
+    save(joinpath(quintile_path, "post_recycle_pc_consumption_Q5.csv"), DataFrame(m_policy[:nice_recycle, :qc_post_recycle][:,:,5], :auto))
 
 end
